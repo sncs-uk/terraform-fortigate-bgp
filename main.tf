@@ -20,7 +20,7 @@ locals {
 
   bgp_peers     = flatten([
     for vdom in var.vdoms : [
-      for peer in local.bgp_peers_yaml[vdom] : [ merge(peer, { vdom = vdom }) ]
+      for ip, peer in local.bgp_peers_yaml[vdom] : [ merge(peer, { vdom = vdom, ip = ip }) ]
     ]
   ])
   route_maps    = flatten([

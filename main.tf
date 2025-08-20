@@ -12,7 +12,7 @@ terraform {
 }
 locals {
   vdom_bgp_yaml = {
-    for vdom in var.vdoms : vdom => yamldecode(file("${var.config_path}/config/${vdom}/bgp.yaml")) if fileexists("${var.config_path}/config/${vdom}/bgp.yaml")
+    for vdom in var.vdoms : vdom => yamldecode(file("${var.config_path}/${vdom}/bgp.yaml")) if fileexists("${var.config_path}/${vdom}/bgp.yaml")
   }
   bgp_peers_yaml        = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].peers, []) }
   prefix_lists_yaml     = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].prefix_lists, []) }

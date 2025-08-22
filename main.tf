@@ -40,6 +40,8 @@ locals {
       for prefixlist in local.prefix_lists_yaml[vdom] : [ merge(prefixlist, { vdom = vdom })] if try(prefixlist.address_family, "") == "ipv6"
     ]
   ])
+
+  redistribute = ["connected", "rip", "ospf", "static", "isis"]
 }
 
 resource fortios_router_bgp router_bgp {
@@ -47,6 +49,24 @@ resource fortios_router_bgp router_bgp {
   as_string     = each.value.asn
   router_id     = each.value.router_id
   vdomparam     = each.key
+
+  dynamic redistribute {
+    for_each = { for type in local.redistribute : type => type }
+    content {
+      name      = redistribute.key
+      status    = try(each.value.redistribute[redistribute.key].status, "disable")
+      route_map = try(each.value.redistribute[redistribute.key].route_map, null)
+    }
+  }
+
+  dynamic redistribute6 {
+    for_each = { for type in local.redistribute : type => type }
+    content {
+      name      = redistribute6.key
+      status    = try(each.value.redistribute6[redistribute6.key].status, "disable")
+      route_map = try(each.value.redistribute6[redistribute6.key].route_map, null)
+    }
+  }
 }
 
 resource fortios_router_prefixlist6 prefixlist_v6 {

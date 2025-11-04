@@ -14,9 +14,10 @@ locals {
   vdom_bgp_yaml = {
     for vdom in var.vdoms : vdom => yamldecode(file("${var.config_path}/${vdom}/bgp.yaml")) if fileexists("${var.config_path}/${vdom}/bgp.yaml")
   }
-  bgp_peers_yaml        = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].peers, []) }
-  prefix_lists_yaml     = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].prefix_lists, []) }
-  route_maps_yaml     = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].route_maps, []) }
+  bgp_peers_yaml          = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].peers, []) }
+  prefix_lists_yaml       = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].prefix_lists, []) }
+  route_maps_yaml         = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].route_maps, []) }
+  aggregate_address_yaml  = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].aggregate_address, []) }
 
   bgp_peers     = flatten([
     for vdom in var.vdoms : [
@@ -41,6 +42,18 @@ locals {
     ]
   ])
 
+  aggregate_address_v4     = flatten([
+    for vdom in keys(local.aggregate_address_yaml) : [
+      for aggregate in local.aggregate_address_yaml[vdom] : [ merge(aggregate, { vdom = vdom })] if try(aggregate.address_family, "") == "ipv4"
+    ]
+  ])
+
+  aggregate_address_v6     = flatten([
+    for vdom in keys(local.aggregate_address_yaml) : [
+      for aggregate in local.aggregate_address_yaml[vdom] : [ merge(aggregate, { vdom = vdom })] if try(aggregate.address_family, "") == "ipv6"
+    ]
+  ])
+
   redistribute = ["connected", "rip", "ospf", "static", "isis"]
 }
 
@@ -49,6 +62,26 @@ resource fortios_router_bgp router_bgp {
   as_string     = each.value.asn
   router_id     = each.value.router_id
   vdomparam     = each.key
+
+  dynamic aggregate_address {
+    for_each = { for aggregate_address in local.aggregate_address_v4 : aggregate_address.id => aggregate_address }
+    content {
+      id            = aggregate_address.value.id
+      prefix        = aggregate_address.value.prefix
+      as_set        = try(aggregate_address.value.as_set, null)
+      summary_only  = try(aggregate_address.value.summary_only, null)
+    }
+  }
+
+  dynamic aggregate_address6 {
+    for_each = { for aggregate_address in local.aggregate_address_v6 : aggregate_address.id => aggregate_address }
+    content {
+      id            = aggregate_address.value.id
+      prefix        = aggregate_address.value.prefix
+      as_set        = try(aggregate_address.value.as_set, null)
+      summary_only  = try(aggregate_address.value.summary_only, null)
+    }
+  }
 
   dynamic redistribute {
     for_each = { for type in local.redistribute : type => type }

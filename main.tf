@@ -77,7 +77,7 @@ resource fortios_router_bgp router_bgp {
     for_each = { for aggregate_address in local.aggregate_address_v6 : aggregate_address.id => aggregate_address }
     content {
       id            = aggregate_address.value.id
-      prefix        = aggregate_address.value.prefix
+      prefix6       = aggregate_address.value.prefix
       as_set        = try(aggregate_address.value.as_set, null)
       summary_only  = try(aggregate_address.value.summary_only, null)
     }

@@ -179,7 +179,7 @@ resource "fortios_router_routemap" "routemaps" {
       set_community_delete = try(rule.value.set_community_delete, null)
 
       dynamic "set_community" {
-        for_each = { for community in try(rule.value.set_community, []) == [] ? [] : [rule.value.set_community] : community => community }
+        for_each = { for community in length(try(rule.value.set_community, [])) == 0 ? [] : [rule.value.set_community] : community => community }
         content {
           community = set_community.value
         }
@@ -194,14 +194,14 @@ resource "fortios_router_routemap" "routemaps" {
       set_ip_nexthop                         = try(rule.value.set_ip_nexthop, null)
 
       dynamic "set_extcommunity_rt" {
-        for_each = { for community in try(rule.value.set_extcommunity_rt, []) == [] ? [] : [rule.value.set_extcommunity_rt] : community => community }
+        for_each = { for community in length(try(rule.value.set_extcommunity_rt, [])) == 0 ? [] : [rule.value.set_extcommunity_rt] : community => community }
         content {
           community = set_extcommunity_rt.value
         }
       }
 
       dynamic "set_extcommunity_soo" {
-        for_each = { for community in try(rule.value.set_extcommunity_soo, []) == [] ? [] : [rule.value.set_extcommunity_soo] : community => community }
+        for_each = { for community in length(try(rule.value.set_extcommunity_soo, [])) == 0 ? [] : [rule.value.set_extcommunity_soo] : community => community }
         content {
           community = set_extcommunity_soo.value
         }

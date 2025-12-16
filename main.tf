@@ -86,20 +86,20 @@ resource "fortios_router_bgp" "router_bgp" {
   }
 
   dynamic "redistribute" {
-    for_each = { for type in local.redistribute : type => type }
+    for_each = { for type in local.redistribute : index(local.redistribute, type) => type }
     content {
-      name      = redistribute.key
-      status    = try(each.value.redistribute[redistribute.key].status, "disable")
-      route_map = try(each.value.redistribute[redistribute.key].route_map, null)
+      name      = redistribute.value
+      status    = try(each.value.redistribute[redistribute.value].status, "disable")
+      route_map = try(each.value.redistribute[redistribute.value].route_map, null)
     }
   }
 
   dynamic "redistribute6" {
-    for_each = { for type in local.redistribute : type => type }
+    for_each = { for type in local.redistribute : index(local.redistribute, type) => type }
     content {
-      name      = redistribute6.key
-      status    = try(each.value.redistribute6[redistribute6.key].status, "disable")
-      route_map = try(each.value.redistribute6[redistribute6.key].route_map, null)
+      name      = redistribute6.value
+      status    = try(each.value.redistribute6[redistribute6.value].status, "disable")
+      route_map = try(each.value.redistribute6[redistribute6.value].route_map, null)
     }
   }
 }
@@ -169,7 +169,7 @@ resource "fortios_router_routemap" "routemaps" {
       set_aspath_action        = try(rule.value.set_aspath_action, null)
 
       dynamic "set_aspath" {
-        for_each = { for as in try(rule.value.set_aspath, []) == [] ? [] : [rule.value.set_aspath] : as => as }
+        for_each = { for as in length(try(rule.value.set_aspath, [])) == 0 ? [] : [rule.value.set_aspath] : as => as }
         content {
           as = set_aspath.value
         }
@@ -179,7 +179,7 @@ resource "fortios_router_routemap" "routemaps" {
       set_community_delete = try(rule.value.set_community_delete, null)
 
       dynamic "set_community" {
-        for_each = { for community in try(rule.value.set_community, []) == [] ? [] : [rule.value.set_community] : community => community }
+        for_each = { for community in length(try(rule.value.set_community, [])) == 0 ? [] : [rule.value.set_community] : community => community }
         content {
           community = set_community.value
         }
@@ -194,14 +194,14 @@ resource "fortios_router_routemap" "routemaps" {
       set_ip_nexthop                         = try(rule.value.set_ip_nexthop, null)
 
       dynamic "set_extcommunity_rt" {
-        for_each = { for community in try(rule.value.set_extcommunity_rt, []) == [] ? [] : [rule.value.set_extcommunity_rt] : community => community }
+        for_each = { for community in length(try(rule.value.set_extcommunity_rt, [])) == 0 ? [] : [rule.value.set_extcommunity_rt] : community => community }
         content {
           community = set_extcommunity_rt.value
         }
       }
 
       dynamic "set_extcommunity_soo" {
-        for_each = { for community in try(rule.value.set_extcommunity_soo, []) == [] ? [] : [rule.value.set_extcommunity_soo] : community => community }
+        for_each = { for community in length(try(rule.value.set_extcommunity_soo, [])) == 0 ? [] : [rule.value.set_extcommunity_soo] : community => community }
         content {
           community = set_extcommunity_soo.value
         }

@@ -12,308 +12,280 @@ terraform {
     }
   }
 }
-locals {
-  vdom_bgp_yaml = {
-    for vdom in var.vdoms : vdom => yamldecode(file("${var.config_path}/${vdom}/bgp.yaml")) if fileexists("${var.config_path}/${vdom}/bgp.yaml")
-  }
-  bgp_peers_yaml         = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].peers, []) }
-  prefix_lists_yaml      = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].prefix_lists, []) }
-  route_maps_yaml        = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].route_maps, []) }
-  aggregate_address_yaml = { for vdom in var.vdoms : vdom => try(local.vdom_bgp_yaml[vdom].aggregate_address, []) }
-
-  bgp_peers = flatten([
-    for vdom in var.vdoms : [
-      for ip, peer in local.bgp_peers_yaml[vdom] : [merge(peer, { vdom = vdom, ip = ip })]
-    ]
-  ])
-  route_maps = flatten([
-    for vdom in var.vdoms : [
-      for map in local.route_maps_yaml[vdom] : [merge(map, { vdom = vdom })]
-    ]
-  ])
-
-  prefix_lists_v4 = flatten([
-    for vdom in keys(local.prefix_lists_yaml) : [
-      for prefixlist in local.prefix_lists_yaml[vdom] : [merge(prefixlist, { vdom = vdom })] if try(prefixlist.address_family, "") == "ipv4"
-    ]
-  ])
-
-  prefix_lists_v6 = flatten([
-    for vdom in keys(local.prefix_lists_yaml) : [
-      for prefixlist in local.prefix_lists_yaml[vdom] : [merge(prefixlist, { vdom = vdom })] if try(prefixlist.address_family, "") == "ipv6"
-    ]
-  ])
-
-  aggregate_address_v4 = flatten([
-    for vdom in keys(local.aggregate_address_yaml) : [
-      for aggregate in local.aggregate_address_yaml[vdom] : [merge(aggregate, { vdom = vdom })] if try(aggregate.address_family, "") == "ipv4"
-    ]
-  ])
-
-  aggregate_address_v6 = flatten([
-    for vdom in keys(local.aggregate_address_yaml) : [
-      for aggregate in local.aggregate_address_yaml[vdom] : [merge(aggregate, { vdom = vdom })] if try(aggregate.address_family, "") == "ipv6"
-    ]
-  ])
-
-  redistribute = ["connected", "rip", "ospf", "static", "isis"]
-}
 
 resource "fortios_router_bgp" "router_bgp" {
-  for_each = local.vdom_bgp_yaml
-
-  as_string                          = try(each.value.asn, null)
-  router_id                          = try(each.value.router_id, null)
-  keepalive_timer                    = try(each.value.keepalive_timer, null)
-  holdtime_timer                     = try(each.value.holdtime_timer, null)
-  always_compare_med                 = try(each.value.always_compare_med, null)
-  bestpath_as_path_ignore            = try(each.value.bestpath_as_path_ignore, null)
-  bestpath_cmp_confed_aspath         = try(each.value.bestpath_cmp_confed_aspath, null)
-  bestpath_cmp_routerid              = try(each.value.bestpath_cmp_routerid, null)
-  bestpath_med_confed                = try(each.value.bestpath_med_confed, null)
-  bestpath_med_missing_as_worst      = try(each.value.bestpath_med_missing_as_worst, null)
-  client_to_client_reflection        = try(each.value.client_to_client_reflection, null)
-  dampening                          = try(each.value.dampening, null)
-  deterministic_med                  = try(each.value.deterministic_med, null)
-  ebgp_multipath                     = try(each.value.ebgp_multipath, null)
-  ibgp_multipath                     = try(each.value.ibgp_multipath, null)
-  enforce_first_as                   = try(each.value.enforce_first_as, null)
-  fast_external_failover             = try(each.value.fast_external_failover, null)
-  log_neighbour_changes              = try(each.value.log_neighbour_changes, null)
-  network_import_check               = try(each.value.network_import_check, null)
-  ignore_optional_capability         = try(each.value.ignore_optional_capability, null)
-  additional_path                    = try(each.value.additional_path, null)
-  additional_path6                   = try(each.value.additional_path6, null)
-  additional_path_vpnv4              = try(each.value.additional_path_vpnv4, null)
-  additional_path_vpnv6              = try(each.value.additional_path_vpnv6, null)
-  multipath_recursive_distance       = try(each.value.multipath_recursive_distance, null)
-  recursive_next_hop                 = try(each.value.recursive_next_hop, null)
-  recursive_inherit_priority         = try(each.value.recursive_inherit_priority, null)
-  tag_resolve_mode                   = try(each.value.tag_resolve_mode, null)
-  cluster_id                         = try(each.value.cluster_id, null)
-  confederation_identifier           = try(each.value.confederation_identifier, null)
-  dampening_route_map                = try(each.value.dampening_route_map, null)
-  dampening_reachability_half_life   = try(each.value.dampening_reachability_half_life, null)
-  dampening_reuse                    = try(each.value.dampening_reuse, null)
-  dampening_suppress                 = try(each.value.dampening_suppress, null)
-  dampening_max_suppress_time        = try(each.value.dampening_max_suppress_time, null)
-  dampening_unreachability_half_life = try(each.value.dampening_unreachability_half_life, null)
-  default_local_preference           = try(each.value.default_local_preference, null)
-  scan_time                          = try(each.value.scan_time, null)
-  distance_external                  = try(each.value.distance_external, null)
-  distance_internal                  = try(each.value.distance_internal, null)
-  distance_local                     = try(each.value.distance_local, null)
-  synchronization                    = try(each.value.synchronization, null)
-  graceful_restart                   = try(each.value.graceful_restart, null)
-  graceful_restart_time              = try(each.value.graceful_restart_time, null)
-  graceful_stalepath_time            = try(each.value.graceful_stalepath_time, null)
-  graceful_update_delay              = try(each.value.graceful_update_delay, null)
-  graceful_end_on_timer              = try(each.value.graceful_end_on_timer, null)
-  additional_path_select             = try(each.value.additional_path_select, null)
-  additional_path_select6            = try(each.value.additional_path_select6, null)
-  additional_path_select_vpnv4       = try(each.value.additional_path_select_vpnv4, null)
-  additional_path_select_vpnv6       = try(each.value.additional_path_select_vpnv6, null)
-  cross_family_conditional_adv       = try(each.value.cross_family_conditional_adv, null)
-
-  vdomparam = each.key
+  for_each                            = { for o in var.routerbgp : o.as => o }
+  as_string                           = each.value.as_string
+  as                                  = each.value.as
+  router_id                           = each.value.router_id
+  keepalive_timer                     = each.value.keepalive_timer
+  holdtime_timer                      = each.value.holdtime_timer
+  always_compare_med                  = each.value.always_compare_med
+  bestpath_as_path_ignore             = each.value.bestpath_as_path_ignore
+  bestpath_cmp_confed_aspath          = each.value.bestpath_cmp_confed_aspath
+  bestpath_cmp_routerid               = each.value.bestpath_cmp_routerid
+  bestpath_med_confed                 = each.value.bestpath_med_confed
+  bestpath_med_missing_as_worst       = each.value.bestpath_med_missing_as_worst
+  client_to_client_reflection         = each.value.client_to_client_reflection
+  dampening                           = each.value.dampening
+  dampening6                          = each.value.dampening6
+  deterministic_med                   = each.value.deterministic_med
+  ebgp_multipath                      = each.value.ebgp_multipath
+  ibgp_multipath                      = each.value.ibgp_multipath
+  enforce_first_as                    = each.value.enforce_first_as
+  fast_external_failover              = each.value.fast_external_failover
+  log_neighbour_changes               = each.value.log_neighbour_changes
+  network_import_check                = each.value.network_import_check
+  ignore_optional_capability          = each.value.ignore_optional_capability
+  additional_path                     = each.value.additional_path
+  additional_path6                    = each.value.additional_path6
+  additional_path_vpnv4               = each.value.additional_path_vpnv4
+  additional_path_vpnv6               = each.value.additional_path_vpnv6
+  multipath_recursive_distance        = each.value.multipath_recursive_distance
+  recursive_next_hop                  = each.value.recursive_next_hop
+  recursive_inherit_priority          = each.value.recursive_inherit_priority
+  tag_resolve_mode                    = each.value.tag_resolve_mode
+  cluster_id                          = each.value.cluster_id
+  confederation_identifier            = each.value.confederation_identifier
+  dampening_route_map                 = each.value.dampening_route_map
+  dampening_reachability_half_life    = each.value.dampening_reachability_half_life
+  dampening_reuse                     = each.value.dampening_reuse
+  dampening_suppress                  = each.value.dampening_suppress
+  dampening_max_suppress_time         = each.value.dampening_max_suppress_time
+  dampening_unreachability_half_life  = each.value.dampening_unreachability_half_life
+  dampening6_route_map                = each.value.dampening6_route_map
+  dampening6_reachability_half_life   = each.value.dampening6_reachability_half_life
+  dampening6_reuse                    = each.value.dampening6_reuse
+  dampening6_suppress                 = each.value.dampening6_suppress
+  dampening6_max_suppress_time        = each.value.dampening6_max_suppress_time
+  dampening6_unreachability_half_life = each.value.dampening6_unreachability_half_life
+  default_local_preference            = each.value.default_local_preference
+  scan_time                           = each.value.scan_time
+  distance_external                   = each.value.distance_external
+  distance_internal                   = each.value.distance_internal
+  distance_local                      = each.value.distance_local
+  synchronization                     = each.value.synchronization
+  graceful_restart                    = each.value.graceful_restart
+  graceful_restart_time               = each.value.graceful_restart_time
+  graceful_stalepath_time             = each.value.graceful_stalepath_time
+  graceful_update_delay               = each.value.graceful_update_delay
+  graceful_end_on_timer               = each.value.graceful_end_on_timer
+  additional_path_select              = each.value.additional_path_select
+  additional_path_select6             = each.value.additional_path_select6
+  additional_path_select_vpnv4        = each.value.additional_path_select_vpnv4
+  additional_path_select_vpnv6        = each.value.additional_path_select_vpnv6
+  cross_family_conditional_adv        = each.value.cross_family_conditional_adv
+  dynamic_sort_subtable               = each.value.dynamic_sort_subtable
+  get_all_tables                      = each.value.get_all_tables
+  vdomparam                           = each.value.vdomparam
 
   dynamic "aggregate_address" {
-    for_each = { for aggregate_address in local.aggregate_address_v4 : aggregate_address.id => aggregate_address }
+    for_each = [for o in each.value.aggregate_address : o]
     content {
       id           = aggregate_address.value.id
       prefix       = aggregate_address.value.prefix
-      as_set       = try(aggregate_address.value.as_set, null)
-      summary_only = try(aggregate_address.value.summary_only, null)
+      as_set       = aggregate_address.value.as_set
+      summary_only = aggregate_address.value.summary_only
     }
   }
 
   dynamic "aggregate_address6" {
-    for_each = { for aggregate_address in local.aggregate_address_v6 : aggregate_address.id => aggregate_address }
+    for_each = [for o in each.value.aggregate_address6 : o]
     content {
       id           = aggregate_address.value.id
-      prefix6      = aggregate_address.value.prefix
-      as_set       = try(aggregate_address.value.as_set, null)
-      summary_only = try(aggregate_address.value.summary_only, null)
+      prefix6      = aggregate_address.value.prefix6
+      as_set       = aggregate_address.value.as_set
+      summary_only = aggregate_address.value.summary_only
     }
   }
 
   dynamic "neighbor" {
-    for_each = { for neighbor in try(each.value.neighbor, []) : neighbor.id => neighbor }
+    for_each = [for o in each.value.neighbor : o]
     content {
-      ip                                = try(neighbor.value.ip)
-      advertisement_interval            = try(neighbor.value.advertisement_interval)
-      allowas_in_enable                 = try(neighbor.value.allowas_in_enable)
-      allowas_in_enable6                = try(neighbor.value.allowas_in_enable6)
-      allowas_in_enable_vpnv4           = try(neighbor.value.allowas_in_enable_vpnv4)
-      allowas_in_enable_vpnv6           = try(neighbor.value.allowas_in_enable_vpnv6)
-      allowas_in_enable_evpn            = try(neighbor.value.allowas_in_enable_evpn)
-      allowas_in                        = try(neighbor.value.allowas_in)
-      allowas_in6                       = try(neighbor.value.allowas_in6)
-      allowas_in_vpnv4                  = try(neighbor.value.allowas_in_vpnv4)
-      allowas_in_vpnv6                  = try(neighbor.value.allowas_in_vpnv6)
-      allowas_in_evpn                   = try(neighbor.value.allowas_in_evpn)
-      attribute_unchanged               = try(neighbor.value.attribute_unchanged)
-      attribute_unchanged6              = try(neighbor.value.attribute_unchanged6)
-      attribute_unchanged_vpnv4         = try(neighbor.value.attribute_unchanged_vpnv4)
-      attribute_unchanged_vpnv6         = try(neighbor.value.attribute_unchanged_vpnv6)
-      activate                          = try(neighbor.value.activate)
-      activate6                         = try(neighbor.value.activate6)
-      activate_vpnv4                    = try(neighbor.value.activate_vpnv4)
-      activate_vpnv6                    = try(neighbor.value.activate_vpnv6)
-      activate_evpn                     = try(neighbor.value.activate_evpn)
-      bfd                               = try(neighbor.value.bfd)
-      capability_dynamic                = try(neighbor.value.capability_dynamic)
-      capability_orf                    = try(neighbor.value.capability_orf)
-      capability_orf6                   = try(neighbor.value.capability_orf6)
-      capability_graceful_restart       = try(neighbor.value.capability_graceful_restart)
-      capability_graceful_restart6      = try(neighbor.value.capability_graceful_restart6)
-      capability_graceful_restart_vpnv4 = try(neighbor.value.capability_graceful_restart_vpnv4)
-      capability_graceful_restart_vpnv6 = try(neighbor.value.capability_graceful_restart_vpnv6)
-      capability_graceful_restart_evpn  = try(neighbor.value.capability_graceful_restart_evpn)
-      capability_route_refresh          = try(neighbor.value.capability_route_refresh)
-      capability_default_originate      = try(neighbor.value.capability_default_originate)
-      capability_default_originate6     = try(neighbor.value.capability_default_originate6)
-      dont_capability_negotiate         = try(neighbor.value.dont_capability_negotiate)
-      ebgp_enforce_multihop             = try(neighbor.value.ebgp_enforce_multihop)
-      link_down_failover                = try(neighbor.value.link_down_failover)
-      stale_route                       = try(neighbor.value.stale_route)
-      next_hop_self                     = try(neighbor.value.next_hop_self)
-      next_hop_self6                    = try(neighbor.value.next_hop_self6)
-      next_hop_self_rr                  = try(neighbor.value.next_hop_self_rr)
-      next_hop_self_rr6                 = try(neighbor.value.next_hop_self_rr6)
-      next_hop_self_vpnv4               = try(neighbor.value.next_hop_self_vpnv4)
-      next_hop_self_vpnv6               = try(neighbor.value.next_hop_self_vpnv6)
-      override_capability               = try(neighbor.value.override_capability)
-      passive                           = try(neighbor.value.passive)
-      remove_private_as                 = try(neighbor.value.remove_private_as)
-      remove_private_as6                = try(neighbor.value.remove_private_as6)
-      remove_private_as_vpnv4           = try(neighbor.value.remove_private_as_vpnv4)
-      remove_private_as_vpnv6           = try(neighbor.value.remove_private_as_vpnv6)
-      remove_private_as_evpn            = try(neighbor.value.remove_private_as_evpn)
-      route_reflector_client            = try(neighbor.value.route_reflector_client)
-      route_reflector_client6           = try(neighbor.value.route_reflector_client6)
-      route_reflector_client_vpnv4      = try(neighbor.value.route_reflector_client_vpnv4)
-      route_reflector_client_vpnv6      = try(neighbor.value.route_reflector_client_vpnv6)
-      route_reflector_client_evpn       = try(neighbor.value.route_reflector_client_evpn)
-      route_server_client               = try(neighbor.value.route_server_client)
-      route_server_client6              = try(neighbor.value.route_server_client6)
-      route_server_client_vpnv4         = try(neighbor.value.route_server_client_vpnv4)
-      route_server_client_vpnv6         = try(neighbor.value.route_server_client_vpnv6)
-      route_server_client_evpn          = try(neighbor.value.route_server_client_evpn)
-      rr_attr_allow_change              = try(neighbor.value.rr_attr_allow_change)
-      rr_attr_allow_change6             = try(neighbor.value.rr_attr_allow_change6)
-      rr_attr_allow_change_vpnv4        = try(neighbor.value.rr_attr_allow_change_vpnv4)
-      rr_attr_allow_change_vpnv6        = try(neighbor.value.rr_attr_allow_change_vpnv6)
-      rr_attr_allow_change_evpn         = try(neighbor.value.rr_attr_allow_change_evpn)
-      shutdown                          = try(neighbor.value.shutdown)
-      soft_reconfiguration              = try(neighbor.value.soft_reconfiguration)
-      soft_reconfiguration6             = try(neighbor.value.soft_reconfiguration6)
-      soft_reconfiguration_vpnv4        = try(neighbor.value.soft_reconfiguration_vpnv4)
-      soft_reconfiguration_vpnv6        = try(neighbor.value.soft_reconfiguration_vpnv6)
-      soft_reconfiguration_evpn         = try(neighbor.value.soft_reconfiguration_evpn)
-      as_override                       = try(neighbor.value.as_override)
-      as_override6                      = try(neighbor.value.as_override6)
-      strict_capability_match           = try(neighbor.value.strict_capability_match)
-      default_originate_routemap        = try(neighbor.value.default_originate_routemap)
-      default_originate_routemap6       = try(neighbor.value.default_originate_routemap6)
-      description                       = try(neighbor.value.description)
-      distribute_list_in                = try(neighbor.value.distribute_list_in)
-      distribute_list_in6               = try(neighbor.value.distribute_list_in6)
-      distribute_list_in_vpnv4          = try(neighbor.value.distribute_list_in_vpnv4)
-      distribute_list_in_vpnv6          = try(neighbor.value.distribute_list_in_vpnv6)
-      distribute_list_out               = try(neighbor.value.distribute_list_out)
-      distribute_list_out6              = try(neighbor.value.distribute_list_out6)
-      distribute_list_out_vpnv4         = try(neighbor.value.distribute_list_out_vpnv4)
-      distribute_list_out_vpnv6         = try(neighbor.value.distribute_list_out_vpnv6)
-      ebgp_multihop_ttl                 = try(neighbor.value.ebgp_multihop_ttl)
-      filter_list_in                    = try(neighbor.value.filter_list_in)
-      filter_list_in6                   = try(neighbor.value.filter_list_in6)
-      filter_list_in_vpnv4              = try(neighbor.value.filter_list_in_vpnv4)
-      filter_list_in_vpnv6              = try(neighbor.value.filter_list_in_vpnv6)
-      filter_list_out                   = try(neighbor.value.filter_list_out)
-      filter_list_out6                  = try(neighbor.value.filter_list_out6)
-      filter_list_out_vpnv4             = try(neighbor.value.filter_list_out_vpnv4)
-      filter_list_out_vpnv6             = try(neighbor.value.filter_list_out_vpnv6)
-      interface                         = try(neighbor.value.interface)
-      maximum_prefix                    = try(neighbor.value.maximum_prefix)
-      maximum_prefix6                   = try(neighbor.value.maximum_prefix6)
-      maximum_prefix_vpnv4              = try(neighbor.value.maximum_prefix_vpnv4)
-      maximum_prefix_vpnv6              = try(neighbor.value.maximum_prefix_vpnv6)
-      maximum_prefix_evpn               = try(neighbor.value.maximum_prefix_evpn)
-      maximum_prefix_threshold          = try(neighbor.value.maximum_prefix_threshold)
-      maximum_prefix_threshold6         = try(neighbor.value.maximum_prefix_threshold6)
-      maximum_prefix_threshold_vpnv4    = try(neighbor.value.maximum_prefix_threshold_vpnv4)
-      maximum_prefix_threshold_vpnv6    = try(neighbor.value.maximum_prefix_threshold_vpnv6)
-      maximum_prefix_threshold_evpn     = try(neighbor.value.maximum_prefix_threshold_evpn)
-      maximum_prefix_warning_only       = try(neighbor.value.maximum_prefix_warning_only)
-      maximum_prefix_warning_only6      = try(neighbor.value.maximum_prefix_warning_only6)
-      maximum_prefix_warning_only_vpnv4 = try(neighbor.value.maximum_prefix_warning_only_vpnv4)
-      maximum_prefix_warning_only_vpnv6 = try(neighbor.value.maximum_prefix_warning_only_vpnv6)
-      maximum_prefix_warning_only_evpn  = try(neighbor.value.maximum_prefix_warning_only_evpn)
-      prefix_list_in                    = try(neighbor.value.prefix_list_in)
-      prefix_list_in6                   = try(neighbor.value.prefix_list_in6)
-      prefix_list_in_vpnv4              = try(neighbor.value.prefix_list_in_vpnv4)
-      prefix_list_in_vpnv6              = try(neighbor.value.prefix_list_in_vpnv6)
-      prefix_list_out                   = try(neighbor.value.prefix_list_out)
-      prefix_list_out6                  = try(neighbor.value.prefix_list_out6)
-      prefix_list_out_vpnv4             = try(neighbor.value.prefix_list_out_vpnv4)
-      prefix_list_out_vpnv6             = try(neighbor.value.prefix_list_out_vpnv6)
-      remote_as                         = try(neighbor.value.remote_as)
-      local_as                          = try(neighbor.value.local_as)
-      local_as_no_prepend               = try(neighbor.value.local_as_no_prepend)
-      local_as_replace_as               = try(neighbor.value.local_as_replace_as)
-      retain_stale_time                 = try(neighbor.value.retain_stale_time)
-      route_map_in                      = try(neighbor.value.route_map_in)
-      route_map_in6                     = try(neighbor.value.route_map_in6)
-      route_map_in_vpnv4                = try(neighbor.value.route_map_in_vpnv4)
-      route_map_in_vpnv6                = try(neighbor.value.route_map_in_vpnv6)
-      route_map_in_evpn                 = try(neighbor.value.route_map_in_evpn)
-      route_map_out                     = try(neighbor.value.route_map_out)
-      route_map_out_preferable          = try(neighbor.value.route_map_out_preferable)
-      route_map_out6                    = try(neighbor.value.route_map_out6)
-      route_map_out6_preferable         = try(neighbor.value.route_map_out6_preferable)
-      route_map_out_vpnv4               = try(neighbor.value.route_map_out_vpnv4)
-      route_map_out_vpnv6               = try(neighbor.value.route_map_out_vpnv6)
-      route_map_out_vpnv4_preferable    = try(neighbor.value.route_map_out_vpnv4_preferable)
-      route_map_out_vpnv6_preferable    = try(neighbor.value.route_map_out_vpnv6_preferable)
-      route_map_out_evpn                = try(neighbor.value.route_map_out_evpn)
-      send_community                    = try(neighbor.value.send_community)
-      send_community6                   = try(neighbor.value.send_community6)
-      send_community_vpnv4              = try(neighbor.value.send_community_vpnv4)
-      send_community_vpnv6              = try(neighbor.value.send_community_vpnv6)
-      send_community_evpn               = try(neighbor.value.send_community_evpn)
-      keep_alive_timer                  = try(neighbor.value.keep_alive_timer)
-      holdtime_timer                    = try(neighbor.value.holdtime_timer)
-      connect_timer                     = try(neighbor.value.connect_timer)
-      unsuppress_map                    = try(neighbor.value.unsuppress_map)
-      unsuppress_map6                   = try(neighbor.value.unsuppress_map6)
-      update_source                     = try(neighbor.value.update_source)
-      weight                            = try(neighbor.value.weight)
-      restart_time                      = try(neighbor.value.restart_time)
-      additional_path                   = try(neighbor.value.additional_path)
-      additional_path6                  = try(neighbor.value.additional_path6)
-      additional_path_vpnv4             = try(neighbor.value.additional_path_vpnv4)
-      additional_path_vpnv6             = try(neighbor.value.additional_path_vpnv6)
-      adv_additional_path               = try(neighbor.value.adv_additional_path)
-      adv_additional_path6              = try(neighbor.value.adv_additional_path6)
-      adv_additional_path_vpnv4         = try(neighbor.value.adv_additional_path_vpnv4)
-      adv_additional_path_vpnv6         = try(neighbor.value.adv_additional_path_vpnv6)
-      password                          = try(neighbor.value.password)
-      auth_options                      = try(neighbor.value.auth_options)
+      ip                                 = neighbor.value.ip
+      name                               = neighbor.value.name
+      advertisement_interval             = neighbor.value.advertisement_interval
+      allowas_in_enable                  = neighbor.value.allowas_in_enable
+      allowas_in_enable6                 = neighbor.value.allowas_in_enable6
+      allowas_in_enable_vpnv4            = neighbor.value.allowas_in_enable_vpnv4
+      allowas_in_enable_vpnv6            = neighbor.value.allowas_in_enable_vpnv6
+      allowas_in_enable_evpn             = neighbor.value.allowas_in_enable_evpn
+      allowas_in                         = neighbor.value.allowas_in
+      allowas_in6                        = neighbor.value.allowas_in6
+      allowas_in_vpnv4                   = neighbor.value.allowas_in_vpnv4
+      allowas_in_vpnv6                   = neighbor.value.allowas_in_vpnv6
+      allowas_in_evpn                    = neighbor.value.allowas_in_evpn
+      attribute_unchanged                = neighbor.value.attribute_unchanged
+      attribute_unchanged6               = neighbor.value.attribute_unchanged6
+      attribute_unchanged_vpnv4          = neighbor.value.attribute_unchanged_vpnv4
+      attribute_unchanged_vpnv6          = neighbor.value.attribute_unchanged_vpnv6
+      activate                           = neighbor.value.activate
+      activate6                          = neighbor.value.activate6
+      activate_vpnv4                     = neighbor.value.activate_vpnv4
+      activate_vpnv6                     = neighbor.value.activate_vpnv6
+      activate_evpn                      = neighbor.value.activate_evpn
+      bfd                                = neighbor.value.bfd
+      capability_dynamic                 = neighbor.value.capability_dynamic
+      capability_orf                     = neighbor.value.capability_orf
+      capability_orf6                    = neighbor.value.capability_orf6
+      capability_graceful_restart        = neighbor.value.capability_graceful_restart
+      capability_graceful_restart6       = neighbor.value.capability_graceful_restart6
+      capability_graceful_restart_vpnv4  = neighbor.value.capability_graceful_restart_vpnv4
+      capability_graceful_restart_vpnv6  = neighbor.value.capability_graceful_restart_vpnv6
+      capability_graceful_restart_evpn   = neighbor.value.capability_graceful_restart_evpn
+      capability_route_refresh           = neighbor.value.capability_route_refresh
+      capability_default_originate       = neighbor.value.capability_default_originate
+      capability_default_originate6      = neighbor.value.capability_default_originate6
+      dont_capability_negotiate          = neighbor.value.dont_capability_negotiate
+      ebgp_enforce_multihop              = neighbor.value.ebgp_enforce_multihop
+      link_down_failover                 = neighbor.value.link_down_failover
+      stale_route                        = neighbor.value.stale_route
+      next_hop_self                      = neighbor.value.next_hop_self
+      next_hop_self6                     = neighbor.value.next_hop_self6
+      next_hop_self_rr                   = neighbor.value.next_hop_self_rr
+      next_hop_self_rr6                  = neighbor.value.next_hop_self_rr6
+      next_hop_self_vpnv4                = neighbor.value.next_hop_self_vpnv4
+      next_hop_self_vpnv6                = neighbor.value.next_hop_self_vpnv6
+      next_hop_self_rr_vpnv4             = neighbor.value.next_hop_self_rr_vpnv4
+      next_hop_self_rr_vpnv6             = neighbor.value.next_hop_self_rr_vpnv6
+      override_capability                = neighbor.value.override_capability
+      passive                            = neighbor.value.passive
+      remove_private_as                  = neighbor.value.remove_private_as
+      remove_private_as6                 = neighbor.value.remove_private_as6
+      remove_private_as_vpnv4            = neighbor.value.remove_private_as_vpnv4
+      remove_private_as_vpnv6            = neighbor.value.remove_private_as_vpnv6
+      remove_private_as_evpn             = neighbor.value.remove_private_as_evpn
+      route_reflector_client             = neighbor.value.route_reflector_client
+      route_reflector_client6            = neighbor.value.route_reflector_client6
+      route_reflector_client_vpnv4       = neighbor.value.route_reflector_client_vpnv4
+      route_reflector_client_vpnv6       = neighbor.value.route_reflector_client_vpnv6
+      route_reflector_client_evpn        = neighbor.value.route_reflector_client_evpn
+      route_server_client                = neighbor.value.route_server_client
+      route_server_client6               = neighbor.value.route_server_client6
+      route_server_client_vpnv4          = neighbor.value.route_server_client_vpnv4
+      route_server_client_vpnv6          = neighbor.value.route_server_client_vpnv6
+      route_server_client_evpn           = neighbor.value.route_server_client_evpn
+      rr_attr_allow_change               = neighbor.value.rr_attr_allow_change
+      rr_attr_allow_change6              = neighbor.value.rr_attr_allow_change6
+      rr_attr_allow_change_vpnv4         = neighbor.value.rr_attr_allow_change_vpnv4
+      rr_attr_allow_change_vpnv6         = neighbor.value.rr_attr_allow_change_vpnv6
+      rr_attr_allow_change_evpn          = neighbor.value.rr_attr_allow_change_evpn
+      adv_evpn_route                     = neighbor.value.adv_evpn_route
+      shutdown                           = neighbor.value.shutdown
+      soft_reconfiguration               = neighbor.value.soft_reconfiguration
+      soft_reconfiguration6              = neighbor.value.soft_reconfiguration6
+      soft_reconfiguration_vpnv4         = neighbor.value.soft_reconfiguration_vpnv4
+      soft_reconfiguration_vpnv6         = neighbor.value.soft_reconfiguration_vpnv6
+      soft_reconfiguration_evpn          = neighbor.value.soft_reconfiguration_evpn
+      as_override                        = neighbor.value.as_override
+      as_override6                       = neighbor.value.as_override6
+      strict_capability_match            = neighbor.value.strict_capability_match
+      default_originate_routemap         = neighbor.value.default_originate_routemap
+      default_originate_routemap6        = neighbor.value.default_originate_routemap6
+      description                        = neighbor.value.description
+      distribute_list_in                 = neighbor.value.distribute_list_in
+      distribute_list_in6                = neighbor.value.distribute_list_in6
+      distribute_list_in_vpnv4           = neighbor.value.distribute_list_in_vpnv4
+      distribute_list_in_vpnv6           = neighbor.value.distribute_list_in_vpnv6
+      distribute_list_out                = neighbor.value.distribute_list_out
+      distribute_list_out6               = neighbor.value.distribute_list_out6
+      distribute_list_out_vpnv4          = neighbor.value.distribute_list_out_vpnv4
+      distribute_list_out_vpnv6          = neighbor.value.distribute_list_out_vpnv6
+      ebgp_multihop_ttl                  = neighbor.value.ebgp_multihop_ttl
+      filter_list_in                     = neighbor.value.filter_list_in
+      filter_list_in6                    = neighbor.value.filter_list_in6
+      filter_list_in_vpnv4               = neighbor.value.filter_list_in_vpnv4
+      filter_list_in_vpnv6               = neighbor.value.filter_list_in_vpnv6
+      filter_list_out                    = neighbor.value.filter_list_out
+      filter_list_out6                   = neighbor.value.filter_list_out6
+      filter_list_out_vpnv4              = neighbor.value.filter_list_out_vpnv4
+      filter_list_out_vpnv6              = neighbor.value.filter_list_out_vpnv6
+      interface                          = neighbor.value.interface
+      maximum_prefix                     = neighbor.value.maximum_prefix
+      maximum_prefix6                    = neighbor.value.maximum_prefix6
+      maximum_prefix_vpnv4               = neighbor.value.maximum_prefix_vpnv4
+      maximum_prefix_vpnv6               = neighbor.value.maximum_prefix_vpnv6
+      maximum_prefix_evpn                = neighbor.value.maximum_prefix_evpn
+      maximum_prefix_threshold           = neighbor.value.maximum_prefix_threshold
+      maximum_prefix_threshold6          = neighbor.value.maximum_prefix_threshold6
+      maximum_prefix_threshold_vpnv4     = neighbor.value.maximum_prefix_threshold_vpnv4
+      maximum_prefix_threshold_vpnv6     = neighbor.value.maximum_prefix_threshold_vpnv6
+      maximum_prefix_threshold_evpn      = neighbor.value.maximum_prefix_threshold_evpn
+      maximum_prefix_warning_only        = neighbor.value.maximum_prefix_warning_only
+      maximum_prefix_warning_only6       = neighbor.value.maximum_prefix_warning_only6
+      maximum_prefix_warning_only_vpnv4  = neighbor.value.maximum_prefix_warning_only_vpnv4
+      maximum_prefix_warning_only_vpnv6  = neighbor.value.maximum_prefix_warning_only_vpnv6
+      maximum_prefix_warning_only_evpn   = neighbor.value.maximum_prefix_warning_only_evpn
+      prefix_list_in                     = neighbor.value.prefix_list_in
+      prefix_list_in6                    = neighbor.value.prefix_list_in6
+      prefix_list_in_vpnv4               = neighbor.value.prefix_list_in_vpnv4
+      prefix_list_in_vpnv6               = neighbor.value.prefix_list_in_vpnv6
+      prefix_list_out                    = neighbor.value.prefix_list_out
+      prefix_list_out6                   = neighbor.value.prefix_list_out6
+      prefix_list_out_vpnv4              = neighbor.value.prefix_list_out_vpnv4
+      prefix_list_out_vpnv6              = neighbor.value.prefix_list_out_vpnv6
+      remote_as                          = neighbor.value.remote_as
+      local_as                           = neighbor.value.local_as
+      local_as_no_prepend                = neighbor.value.local_as_no_prepend
+      local_as_replace_as                = neighbor.value.local_as_replace_as
+      retain_stale_time                  = neighbor.value.retain_stale_time
+      route_map_in                       = neighbor.value.route_map_in
+      route_map_in6                      = neighbor.value.route_map_in6
+      route_map_in_vpnv4                 = neighbor.value.route_map_in_vpnv4
+      route_map_in_vpnv6                 = neighbor.value.route_map_in_vpnv6
+      route_map_in_evpn                  = neighbor.value.route_map_in_evpn
+      route_map_out                      = neighbor.value.route_map_out
+      route_map_out_preferable           = neighbor.value.route_map_out_preferable
+      route_map_out6                     = neighbor.value.route_map_out6
+      route_map_out6_preferable          = neighbor.value.route_map_out6_preferable
+      route_map_out_vpnv4                = neighbor.value.route_map_out_vpnv4
+      route_map_out_vpnv6                = neighbor.value.route_map_out_vpnv6
+      route_map_out_vpnv4_preferable     = neighbor.value.route_map_out_vpnv4_preferable
+      route_map_out_vpnv6_preferable     = neighbor.value.route_map_out_vpnv6_preferable
+      route_map_out_evpn                 = neighbor.value.route_map_out_evpn
+      send_community                     = neighbor.value.send_community
+      send_community6                    = neighbor.value.send_community6
+      send_community_vpnv4               = neighbor.value.send_community_vpnv4
+      send_community_vpnv6               = neighbor.value.send_community_vpnv6
+      send_community_evpn                = neighbor.value.send_community_evpn
+      keep_alive_timer                   = neighbor.value.keep_alive_timer
+      holdtime_timer                     = neighbor.value.holdtime_timer
+      connect_timer                      = neighbor.value.connect_timer
+      unsuppress_map                     = neighbor.value.unsuppress_map
+      unsuppress_map6                    = neighbor.value.unsuppress_map6
+      update_source                      = neighbor.value.update_source
+      enforce_preferred_source           = neighbor.value.enforce_preferred_source
+      weight                             = neighbor.value.weight
+      restart_time                       = neighbor.value.restart_time
+      additional_path                    = neighbor.value.additional_path
+      additional_path6                   = neighbor.value.additional_path6
+      additional_path_vpnv4              = neighbor.value.additional_path_vpnv4
+      additional_path_vpnv6              = neighbor.value.additional_path_vpnv6
+      adv_additional_path                = neighbor.value.adv_additional_path
+      adv_additional_path6               = neighbor.value.adv_additional_path6
+      adv_additional_path_vpnv4          = neighbor.value.adv_additional_path_vpnv4
+      adv_additional_path_vpnv6          = neighbor.value.adv_additional_path_vpnv6
+      password                           = neighbor.value.password
+      auth_options                       = neighbor.value.auth_options
+      graceful_shutdown_community        = neighbor.value.graceful_shutdown_community
+      graceful_shutdown_local_preference = neighbor.value.graceful_shutdown_local_preference
+      graceful_shutdown_delay            = neighbor.value.graceful_shutdown_delay
+      use_sdwan                          = neighbor.value.use_sdwan
+
       dynamic "conditional_advertise" {
-        for_each = { for advertise in try(neighbor.value.conditional_advertise, []) : index(neighbor.value.conditional_advertise, advertise) => advertise }
+        for_each = [for p in neighbor.value.conditional_advertise : p]
         content {
-          advertise_routemap = try(advertise.value.advertise_routemap, null)
-          condition_routemap = try(advertise.value.condition_routemap, null)
-          condition_type     = try(advertise.value.condition_type, null)
+          advertise_routemap = conditional_advertise.value.advertise_routemap
+          condition_routemap = conditional_advertise.value.condition_routemap
+          condition_type     = conditional_advertise.value.condition_type
         }
       }
       dynamic "conditional_advertise6" {
-        for_each = { for advertise6 in try(neighbor.value.conditional_advertise6, []) : index(neighbor.value.conditional_advertise6, advertise6) => advertise6 }
+        for_each = [for p in neighbor.value.conditional_advertise6 : p]
         content {
-          advertise_routemap = try(advertise6.value.advertise_routemap, null)
-          condition_routemap = try(advertise6.value.condition_routemap, null)
-          condition_type     = try(advertise6.value.condition_type, null)
+          advertise_routemap = conditional_advertise6.value.advertise_routemap
+          condition_routemap = conditional_advertise6.value.condition_routemap
+          condition_type     = conditional_advertise6.value.condition_type
         }
       }
     }
@@ -321,622 +293,676 @@ resource "fortios_router_bgp" "router_bgp" {
 
 
   dynamic "neighbor_group" {
-    for_each = { for neighbor_group in try(each.value.neighbor_group, []) : neighbor_group.name => neighbor_group }
+    for_each = [for o in each.value.neighbor_group : o]
     content {
-      name                              = try(neighbor_group.value.name, null)
-      advertisement_interval            = try(neighbor_group.value.advertisement_interval, null)
-      allowas_in_enable                 = try(neighbor_group.value.allowas_in_enable, null)
-      allowas_in_enable6                = try(neighbor_group.value.allowas_in_enable6, null)
-      allowas_in_enable_vpnv4           = try(neighbor_group.value.allowas_in_enable_vpnv4, null)
-      allowas_in_enable_vpnv6           = try(neighbor_group.value.allowas_in_enable_vpnv6, null)
-      allowas_in_enable_evpn            = try(neighbor_group.value.allowas_in_enable_evpn, null)
-      allowas_in                        = try(neighbor_group.value.allowas_in, null)
-      allowas_in6                       = try(neighbor_group.value.allowas_in6, null)
-      allowas_in_vpnv4                  = try(neighbor_group.value.allowas_in_vpnv4, null)
-      allowas_in_vpnv6                  = try(neighbor_group.value.allowas_in_vpnv6, null)
-      allowas_in_evpn                   = try(neighbor_group.value.allowas_in_evpn, null)
-      attribute_unchanged               = try(neighbor_group.value.attribute_unchanged, null)
-      attribute_unchanged6              = try(neighbor_group.value.attribute_unchanged6, null)
-      attribute_unchanged_vpnv4         = try(neighbor_group.value.attribute_unchanged_vpnv4, null)
-      attribute_unchanged_vpnv6         = try(neighbor_group.value.attribute_unchanged_vpnv6, null)
-      activate                          = try(neighbor_group.value.activate, null)
-      activate6                         = try(neighbor_group.value.activate6, null)
-      activate_vpnv4                    = try(neighbor_group.value.activate_vpnv4, null)
-      activate_vpnv6                    = try(neighbor_group.value.activate_vpnv6, null)
-      activate_evpn                     = try(neighbor_group.value.activate_evpn, null)
-      bfd                               = try(neighbor_group.value.bfd, null)
-      capability_dynamic                = try(neighbor_group.value.capability_dynamic, null)
-      capability_orf                    = try(neighbor_group.value.capability_orf, null)
-      capability_orf6                   = try(neighbor_group.value.capability_orf6, null)
-      capability_graceful_restart       = try(neighbor_group.value.capability_graceful_restart, null)
-      capability_graceful_restart6      = try(neighbor_group.value.capability_graceful_restart6, null)
-      capability_graceful_restart_vpnv4 = try(neighbor_group.value.capability_graceful_restart_vpnv4, null)
-      capability_graceful_restart_vpnv6 = try(neighbor_group.value.capability_graceful_restart_vpnv6, null)
-      capability_graceful_restart_evpn  = try(neighbor_group.value.capability_graceful_restart_evpn, null)
-      capability_route_refresh          = try(neighbor_group.value.capability_route_refresh, null)
-      capability_default_originate      = try(neighbor_group.value.capability_default_originate, null)
-      capability_default_originate6     = try(neighbor_group.value.capability_default_originate6, null)
-      dont_capability_negotiate         = try(neighbor_group.value.dont_capability_negotiate, null)
-      ebgp_enforce_multihop             = try(neighbor_group.value.ebgp_enforce_multihop, null)
-      link_down_failover                = try(neighbor_group.value.link_down_failover, null)
-      stale_route                       = try(neighbor_group.value.stale_route, null)
-      next_hop_self                     = try(neighbor_group.value.next_hop_self, null)
-      next_hop_self6                    = try(neighbor_group.value.next_hop_self6, null)
-      next_hop_self_rr                  = try(neighbor_group.value.next_hop_self_rr, null)
-      next_hop_self_rr6                 = try(neighbor_group.value.next_hop_self_rr6, null)
-      next_hop_self_vpnv4               = try(neighbor_group.value.next_hop_self_vpnv4, null)
-      next_hop_self_vpnv6               = try(neighbor_group.value.next_hop_self_vpnv6, null)
-      override_capability               = try(neighbor_group.value.override_capability, null)
-      passive                           = try(neighbor_group.value.passive, null)
-      remove_private_as                 = try(neighbor_group.value.remove_private_as, null)
-      remove_private_as6                = try(neighbor_group.value.remove_private_as6, null)
-      remove_private_as_vpnv4           = try(neighbor_group.value.remove_private_as_vpnv4, null)
-      remove_private_as_vpnv6           = try(neighbor_group.value.remove_private_as_vpnv6, null)
-      remove_private_as_evpn            = try(neighbor_group.value.remove_private_as_evpn, null)
-      route_reflector_client            = try(neighbor_group.value.route_reflector_client, null)
-      route_reflector_client6           = try(neighbor_group.value.route_reflector_client6, null)
-      route_reflector_client_vpnv4      = try(neighbor_group.value.route_reflector_client_vpnv4, null)
-      route_reflector_client_vpnv6      = try(neighbor_group.value.route_reflector_client_vpnv6, null)
-      route_reflector_client_evpn       = try(neighbor_group.value.route_reflector_client_evpn, null)
-      route_server_client               = try(neighbor_group.value.route_server_client, null)
-      route_server_client6              = try(neighbor_group.value.route_server_client6, null)
-      route_server_client_vpnv4         = try(neighbor_group.value.route_server_client_vpnv4, null)
-      route_server_client_vpnv6         = try(neighbor_group.value.route_server_client_vpnv6, null)
-      route_server_client_evpn          = try(neighbor_group.value.route_server_client_evpn, null)
-      rr_attr_allow_change              = try(neighbor_group.value.rr_attr_allow_change, null)
-      rr_attr_allow_change6             = try(neighbor_group.value.rr_attr_allow_change6, null)
-      rr_attr_allow_change_vpnv4        = try(neighbor_group.value.rr_attr_allow_change_vpnv4, null)
-      rr_attr_allow_change_vpnv6        = try(neighbor_group.value.rr_attr_allow_change_vpnv6, null)
-      rr_attr_allow_change_evpn         = try(neighbor_group.value.rr_attr_allow_change_evpn, null)
-      shutdown                          = try(neighbor_group.value.shutdown, null)
-      soft_reconfiguration              = try(neighbor_group.value.soft_reconfiguration, null)
-      soft_reconfiguration6             = try(neighbor_group.value.soft_reconfiguration6, null)
-      soft_reconfiguration_vpnv4        = try(neighbor_group.value.soft_reconfiguration_vpnv4, null)
-      soft_reconfiguration_vpnv6        = try(neighbor_group.value.soft_reconfiguration_vpnv6, null)
-      soft_reconfiguration_evpn         = try(neighbor_group.value.soft_reconfiguration_evpn, null)
-      as_override                       = try(neighbor_group.value.as_override, null)
-      as_override6                      = try(neighbor_group.value.as_override6, null)
-      strict_capability_match           = try(neighbor_group.value.strict_capability_match, null)
-      default_originate_routemap        = try(neighbor_group.value.default_originate_routemap, null)
-      default_originate_routemap6       = try(neighbor_group.value.default_originate_routemap6, null)
-      description                       = try(neighbor_group.value.description, null)
-      distribute_list_in                = try(neighbor_group.value.distribute_list_in, null)
-      distribute_list_in6               = try(neighbor_group.value.distribute_list_in6, null)
-      distribute_list_in_vpnv4          = try(neighbor_group.value.distribute_list_in_vpnv4, null)
-      distribute_list_in_vpnv6          = try(neighbor_group.value.distribute_list_in_vpnv6, null)
-      distribute_list_out               = try(neighbor_group.value.distribute_list_out, null)
-      distribute_list_out6              = try(neighbor_group.value.distribute_list_out6, null)
-      distribute_list_out_vpnv4         = try(neighbor_group.value.distribute_list_out_vpnv4, null)
-      distribute_list_out_vpnv6         = try(neighbor_group.value.distribute_list_out_vpnv6, null)
-      ebgp_multihop_ttl                 = try(neighbor_group.value.ebgp_multihop_ttl, null)
-      filter_list_in                    = try(neighbor_group.value.filter_list_in, null)
-      filter_list_in6                   = try(neighbor_group.value.filter_list_in6, null)
-      filter_list_in_vpnv4              = try(neighbor_group.value.filter_list_in_vpnv4, null)
-      filter_list_in_vpnv6              = try(neighbor_group.value.filter_list_in_vpnv6, null)
-      filter_list_out                   = try(neighbor_group.value.filter_list_out, null)
-      filter_list_out6                  = try(neighbor_group.value.filter_list_out6, null)
-      filter_list_out_vpnv4             = try(neighbor_group.value.filter_list_out_vpnv4, null)
-      filter_list_out_vpnv6             = try(neighbor_group.value.filter_list_out_vpnv6, null)
-      interface                         = try(neighbor_group.value.interface, null)
-      maximum_prefix                    = try(neighbor_group.value.maximum_prefix, null)
-      maximum_prefix6                   = try(neighbor_group.value.maximum_prefix6, null)
-      maximum_prefix_vpnv4              = try(neighbor_group.value.maximum_prefix_vpnv4, null)
-      maximum_prefix_vpnv6              = try(neighbor_group.value.maximum_prefix_vpnv6, null)
-      maximum_prefix_evpn               = try(neighbor_group.value.maximum_prefix_evpn, null)
-      maximum_prefix_threshold          = try(neighbor_group.value.maximum_prefix_threshold, null)
-      maximum_prefix_threshold6         = try(neighbor_group.value.maximum_prefix_threshold6, null)
-      maximum_prefix_threshold_vpnv4    = try(neighbor_group.value.maximum_prefix_threshold_vpnv4, null)
-      maximum_prefix_threshold_vpnv6    = try(neighbor_group.value.maximum_prefix_threshold_vpnv6, null)
-      maximum_prefix_threshold_evpn     = try(neighbor_group.value.maximum_prefix_threshold_evpn, null)
-      maximum_prefix_warning_only       = try(neighbor_group.value.maximum_prefix_warning_only, null)
-      maximum_prefix_warning_only6      = try(neighbor_group.value.maximum_prefix_warning_only6, null)
-      maximum_prefix_warning_only_vpnv4 = try(neighbor_group.value.maximum_prefix_warning_only_vpnv4, null)
-      maximum_prefix_warning_only_vpnv6 = try(neighbor_group.value.maximum_prefix_warning_only_vpnv6, null)
-      maximum_prefix_warning_only_evpn  = try(neighbor_group.value.maximum_prefix_warning_only_evpn, null)
-      prefix_list_in                    = try(neighbor_group.value.prefix_list_in, null)
-      prefix_list_in6                   = try(neighbor_group.value.prefix_list_in6, null)
-      prefix_list_in_vpnv4              = try(neighbor_group.value.prefix_list_in_vpnv4, null)
-      prefix_list_in_vpnv6              = try(neighbor_group.value.prefix_list_in_vpnv6, null)
-      prefix_list_out                   = try(neighbor_group.value.prefix_list_out, null)
-      prefix_list_out6                  = try(neighbor_group.value.prefix_list_out6, null)
-      prefix_list_out_vpnv4             = try(neighbor_group.value.prefix_list_out_vpnv4, null)
-      prefix_list_out_vpnv6             = try(neighbor_group.value.prefix_list_out_vpnv6, null)
-      remote_as                         = try(neighbor_group.value.remote_as, null)
-      remote_as_filter                  = try(neighbor_group.value.remote_as_filter, null)
-      local_as                          = try(neighbor_group.value.local_as, null)
-      local_as_no_prepend               = try(neighbor_group.value.local_as_no_prepend, null)
-      local_as_replace_as               = try(neighbor_group.value.local_as_replace_as, null)
-      retain_stale_time                 = try(neighbor_group.value.retain_stale_time, null)
-      route_map_in                      = try(neighbor_group.value.route_map_in, null)
-      route_map_in6                     = try(neighbor_group.value.route_map_in6, null)
-      route_map_in_vpnv4                = try(neighbor_group.value.route_map_in_vpnv4, null)
-      route_map_in_vpnv6                = try(neighbor_group.value.route_map_in_vpnv6, null)
-      route_map_in_evpn                 = try(neighbor_group.value.route_map_in_evpn, null)
-      route_map_out                     = try(neighbor_group.value.route_map_out, null)
-      route_map_out_preferable          = try(neighbor_group.value.route_map_out_preferable, null)
-      route_map_out6                    = try(neighbor_group.value.route_map_out6, null)
-      route_map_out6_preferable         = try(neighbor_group.value.route_map_out6_preferable, null)
-      route_map_out_vpnv4               = try(neighbor_group.value.route_map_out_vpnv4, null)
-      route_map_out_vpnv6               = try(neighbor_group.value.route_map_out_vpnv6, null)
-      route_map_out_vpnv4_preferable    = try(neighbor_group.value.route_map_out_vpnv4_preferable, null)
-      route_map_out_vpnv6_preferable    = try(neighbor_group.value.route_map_out_vpnv6_preferable, null)
-      route_map_out_evpn                = try(neighbor_group.value.route_map_out_evpn, null)
-      send_community                    = try(neighbor_group.value.send_community, null)
-      send_community6                   = try(neighbor_group.value.send_community6, null)
-      send_community_vpnv4              = try(neighbor_group.value.send_community_vpnv4, null)
-      send_community_vpnv6              = try(neighbor_group.value.send_community_vpnv6, null)
-      send_community_evpn               = try(neighbor_group.value.send_community_evpn, null)
-      keep_alive_timer                  = try(neighbor_group.value.keep_alive_timer, null)
-      holdtime_timer                    = try(neighbor_group.value.holdtime_timer, null)
-      connect_timer                     = try(neighbor_group.value.connect_timer, null)
-      unsuppress_map                    = try(neighbor_group.value.unsuppress_map, null)
-      unsuppress_map6                   = try(neighbor_group.value.unsuppress_map6, null)
-      update_source                     = try(neighbor_group.value.update_source, null)
-      weight                            = try(neighbor_group.value.weight, null)
-      restart_time                      = try(neighbor_group.value.restart_time, null)
-      additional_path                   = try(neighbor_group.value.additional_path, null)
-      additional_path6                  = try(neighbor_group.value.additional_path6, null)
-      additional_path_vpnv4             = try(neighbor_group.value.additional_path_vpnv4, null)
-      additional_path_vpnv6             = try(neighbor_group.value.additional_path_vpnv6, null)
-      adv_additional_path               = try(neighbor_group.value.adv_additional_path, null)
-      adv_additional_path6              = try(neighbor_group.value.adv_additional_path6, null)
-      adv_additional_path_vpnv4         = try(neighbor_group.value.adv_additional_path_vpnv4, null)
-      adv_additional_path_vpnv6         = try(neighbor_group.value.adv_additional_path_vpnv6, null)
-      password                          = try(neighbor_group.value.password, null)
-      auth_options                      = try(neighbor_group.value.auth_options, null)
+      name                               = neighbor_group.value.name
+      advertisement_interval             = neighbor_group.value.advertisement_interval
+      allowas_in_enable                  = neighbor_group.value.allowas_in_enable
+      allowas_in_enable6                 = neighbor_group.value.allowas_in_enable6
+      allowas_in_enable_vpnv4            = neighbor_group.value.allowas_in_enable_vpnv4
+      allowas_in_enable_vpnv6            = neighbor_group.value.allowas_in_enable_vpnv6
+      allowas_in_enable_evpn             = neighbor_group.value.allowas_in_enable_evpn
+      allowas_in                         = neighbor_group.value.allowas_in
+      allowas_in6                        = neighbor_group.value.allowas_in6
+      allowas_in_vpnv4                   = neighbor_group.value.allowas_in_vpnv4
+      allowas_in_vpnv6                   = neighbor_group.value.allowas_in_vpnv6
+      allowas_in_evpn                    = neighbor_group.value.allowas_in_evpn
+      attribute_unchanged                = neighbor_group.value.attribute_unchanged
+      attribute_unchanged6               = neighbor_group.value.attribute_unchanged6
+      attribute_unchanged_vpnv4          = neighbor_group.value.attribute_unchanged_vpnv4
+      attribute_unchanged_vpnv6          = neighbor_group.value.attribute_unchanged_vpnv6
+      activate                           = neighbor_group.value.activate
+      activate6                          = neighbor_group.value.activate6
+      activate_vpnv4                     = neighbor_group.value.activate_vpnv4
+      activate_vpnv6                     = neighbor_group.value.activate_vpnv6
+      activate_evpn                      = neighbor_group.value.activate_evpn
+      bfd                                = neighbor_group.value.bfd
+      capability_dynamic                 = neighbor_group.value.capability_dynamic
+      capability_orf                     = neighbor_group.value.capability_orf
+      capability_orf6                    = neighbor_group.value.capability_orf6
+      capability_graceful_restart        = neighbor_group.value.capability_graceful_restart
+      capability_graceful_restart6       = neighbor_group.value.capability_graceful_restart6
+      capability_graceful_restart_vpnv4  = neighbor_group.value.capability_graceful_restart_vpnv4
+      capability_graceful_restart_vpnv6  = neighbor_group.value.capability_graceful_restart_vpnv6
+      capability_graceful_restart_evpn   = neighbor_group.value.capability_graceful_restart_evpn
+      capability_route_refresh           = neighbor_group.value.capability_route_refresh
+      capability_default_originate       = neighbor_group.value.capability_default_originate
+      capability_default_originate6      = neighbor_group.value.capability_default_originate6
+      dont_capability_negotiate          = neighbor_group.value.dont_capability_negotiate
+      ebgp_enforce_multihop              = neighbor_group.value.ebgp_enforce_multihop
+      link_down_failover                 = neighbor_group.value.link_down_failover
+      stale_route                        = neighbor_group.value.stale_route
+      next_hop_self                      = neighbor_group.value.next_hop_self
+      next_hop_self6                     = neighbor_group.value.next_hop_self6
+      next_hop_self_rr                   = neighbor_group.value.next_hop_self_rr
+      next_hop_self_rr6                  = neighbor_group.value.next_hop_self_rr6
+      next_hop_self_vpnv4                = neighbor_group.value.next_hop_self_vpnv4
+      next_hop_self_vpnv6                = neighbor_group.value.next_hop_self_vpnv6
+      next_hop_self_rr_vpnv4             = neighbor_group.value.next_hop_self_rr_vpnv4
+      next_hop_self_rr_vpnv6             = neighbor_group.value.next_hop_self_rr_vpnv6
+      override_capability                = neighbor_group.value.override_capability
+      passive                            = neighbor_group.value.passive
+      remove_private_as                  = neighbor_group.value.remove_private_as
+      remove_private_as6                 = neighbor_group.value.remove_private_as6
+      remove_private_as_vpnv4            = neighbor_group.value.remove_private_as_vpnv4
+      remove_private_as_vpnv6            = neighbor_group.value.remove_private_as_vpnv6
+      remove_private_as_evpn             = neighbor_group.value.remove_private_as_evpn
+      route_reflector_client             = neighbor_group.value.route_reflector_client
+      route_reflector_client6            = neighbor_group.value.route_reflector_client6
+      route_reflector_client_vpnv4       = neighbor_group.value.route_reflector_client_vpnv4
+      route_reflector_client_vpnv6       = neighbor_group.value.route_reflector_client_vpnv6
+      route_reflector_client_evpn        = neighbor_group.value.route_reflector_client_evpn
+      route_server_client                = neighbor_group.value.route_server_client
+      route_server_client6               = neighbor_group.value.route_server_client6
+      route_server_client_vpnv4          = neighbor_group.value.route_server_client_vpnv4
+      route_server_client_vpnv6          = neighbor_group.value.route_server_client_vpnv6
+      route_server_client_evpn           = neighbor_group.value.route_server_client_evpn
+      rr_attr_allow_change               = neighbor_group.value.rr_attr_allow_change
+      rr_attr_allow_change6              = neighbor_group.value.rr_attr_allow_change6
+      rr_attr_allow_change_vpnv4         = neighbor_group.value.rr_attr_allow_change_vpnv4
+      rr_attr_allow_change_vpnv6         = neighbor_group.value.rr_attr_allow_change_vpnv6
+      rr_attr_allow_change_evpn          = neighbor_group.value.rr_attr_allow_change_evpn
+      adv_evpn_route                     = neighbor_group.value.adv_evpn_route
+      shutdown                           = neighbor_group.value.shutdown
+      soft_reconfiguration               = neighbor_group.value.soft_reconfiguration
+      soft_reconfiguration6              = neighbor_group.value.soft_reconfiguration6
+      soft_reconfiguration_vpnv4         = neighbor_group.value.soft_reconfiguration_vpnv4
+      soft_reconfiguration_vpnv6         = neighbor_group.value.soft_reconfiguration_vpnv6
+      soft_reconfiguration_evpn          = neighbor_group.value.soft_reconfiguration_evpn
+      as_override                        = neighbor_group.value.as_override
+      as_override6                       = neighbor_group.value.as_override6
+      strict_capability_match            = neighbor_group.value.strict_capability_match
+      default_originate_routemap         = neighbor_group.value.default_originate_routemap
+      default_originate_routemap6        = neighbor_group.value.default_originate_routemap6
+      description                        = neighbor_group.value.description
+      distribute_list_in                 = neighbor_group.value.distribute_list_in
+      distribute_list_in6                = neighbor_group.value.distribute_list_in6
+      distribute_list_in_vpnv4           = neighbor_group.value.distribute_list_in_vpnv4
+      distribute_list_in_vpnv6           = neighbor_group.value.distribute_list_in_vpnv6
+      distribute_list_out                = neighbor_group.value.distribute_list_out
+      distribute_list_out6               = neighbor_group.value.distribute_list_out6
+      distribute_list_out_vpnv4          = neighbor_group.value.distribute_list_out_vpnv4
+      distribute_list_out_vpnv6          = neighbor_group.value.distribute_list_out_vpnv6
+      ebgp_multihop_ttl                  = neighbor_group.value.ebgp_multihop_ttl
+      filter_list_in                     = neighbor_group.value.filter_list_in
+      filter_list_in6                    = neighbor_group.value.filter_list_in6
+      filter_list_in_vpnv4               = neighbor_group.value.filter_list_in_vpnv4
+      filter_list_in_vpnv6               = neighbor_group.value.filter_list_in_vpnv6
+      filter_list_out                    = neighbor_group.value.filter_list_out
+      filter_list_out6                   = neighbor_group.value.filter_list_out6
+      filter_list_out_vpnv4              = neighbor_group.value.filter_list_out_vpnv4
+      filter_list_out_vpnv6              = neighbor_group.value.filter_list_out_vpnv6
+      interface                          = neighbor_group.value.interface
+      maximum_prefix                     = neighbor_group.value.maximum_prefix
+      maximum_prefix6                    = neighbor_group.value.maximum_prefix6
+      maximum_prefix_vpnv4               = neighbor_group.value.maximum_prefix_vpnv4
+      maximum_prefix_vpnv6               = neighbor_group.value.maximum_prefix_vpnv6
+      maximum_prefix_evpn                = neighbor_group.value.maximum_prefix_evpn
+      maximum_prefix_threshold           = neighbor_group.value.maximum_prefix_threshold
+      maximum_prefix_threshold6          = neighbor_group.value.maximum_prefix_threshold6
+      maximum_prefix_threshold_vpnv4     = neighbor_group.value.maximum_prefix_threshold_vpnv4
+      maximum_prefix_threshold_vpnv6     = neighbor_group.value.maximum_prefix_threshold_vpnv6
+      maximum_prefix_threshold_evpn      = neighbor_group.value.maximum_prefix_threshold_evpn
+      maximum_prefix_warning_only        = neighbor_group.value.maximum_prefix_warning_only
+      maximum_prefix_warning_only6       = neighbor_group.value.maximum_prefix_warning_only6
+      maximum_prefix_warning_only_vpnv4  = neighbor_group.value.maximum_prefix_warning_only_vpnv4
+      maximum_prefix_warning_only_vpnv6  = neighbor_group.value.maximum_prefix_warning_only_vpnv6
+      maximum_prefix_warning_only_evpn   = neighbor_group.value.maximum_prefix_warning_only_evpn
+      prefix_list_in                     = neighbor_group.value.prefix_list_in
+      prefix_list_in6                    = neighbor_group.value.prefix_list_in6
+      prefix_list_in_vpnv4               = neighbor_group.value.prefix_list_in_vpnv4
+      prefix_list_in_vpnv6               = neighbor_group.value.prefix_list_in_vpnv6
+      prefix_list_out                    = neighbor_group.value.prefix_list_out
+      prefix_list_out6                   = neighbor_group.value.prefix_list_out6
+      prefix_list_out_vpnv4              = neighbor_group.value.prefix_list_out_vpnv4
+      prefix_list_out_vpnv6              = neighbor_group.value.prefix_list_out_vpnv6
+      remote_as                          = neighbor_group.value.remote_as
+      remote_as_filter                   = neighbor_group.value.remote_as_filter
+      local_as                           = neighbor_group.value.local_as
+      local_as_no_prepend                = neighbor_group.value.local_as_no_prepend
+      local_as_replace_as                = neighbor_group.value.local_as_replace_as
+      retain_stale_time                  = neighbor_group.value.retain_stale_time
+      route_map_in                       = neighbor_group.value.route_map_in
+      route_map_in6                      = neighbor_group.value.route_map_in6
+      route_map_in_vpnv4                 = neighbor_group.value.route_map_in_vpnv4
+      route_map_in_vpnv6                 = neighbor_group.value.route_map_in_vpnv6
+      route_map_in_evpn                  = neighbor_group.value.route_map_in_evpn
+      route_map_out                      = neighbor_group.value.route_map_out
+      route_map_out_preferable           = neighbor_group.value.route_map_out_preferable
+      route_map_out6                     = neighbor_group.value.route_map_out6
+      route_map_out6_preferable          = neighbor_group.value.route_map_out6_preferable
+      route_map_out_vpnv4                = neighbor_group.value.route_map_out_vpnv4
+      route_map_out_vpnv6                = neighbor_group.value.route_map_out_vpnv6
+      route_map_out_vpnv4_preferable     = neighbor_group.value.route_map_out_vpnv4_preferable
+      route_map_out_vpnv6_preferable     = neighbor_group.value.route_map_out_vpnv6_preferable
+      route_map_out_evpn                 = neighbor_group.value.route_map_out_evpn
+      send_community                     = neighbor_group.value.send_community
+      send_community6                    = neighbor_group.value.send_community6
+      send_community_vpnv4               = neighbor_group.value.send_community_vpnv4
+      send_community_vpnv6               = neighbor_group.value.send_community_vpnv6
+      send_community_evpn                = neighbor_group.value.send_community_evpn
+      keep_alive_timer                   = neighbor_group.value.keep_alive_timer
+      holdtime_timer                     = neighbor_group.value.holdtime_timer
+      connect_timer                      = neighbor_group.value.connect_timer
+      unsuppress_map                     = neighbor_group.value.unsuppress_map
+      unsuppress_map6                    = neighbor_group.value.unsuppress_map6
+      update_source                      = neighbor_group.value.update_source
+      enforce_preferred_source           = neighbor_group.value.enforce_preferred_source
+      weight                             = neighbor_group.value.weight
+      restart_time                       = neighbor_group.value.restart_time
+      additional_path                    = neighbor_group.value.additional_path
+      additional_path6                   = neighbor_group.value.additional_path6
+      additional_path_vpnv4              = neighbor_group.value.additional_path_vpnv4
+      additional_path_vpnv6              = neighbor_group.value.additional_path_vpnv6
+      adv_additional_path                = neighbor_group.value.adv_additional_path
+      adv_additional_path6               = neighbor_group.value.adv_additional_path6
+      adv_additional_path_vpnv4          = neighbor_group.value.adv_additional_path_vpnv4
+      adv_additional_path_vpnv6          = neighbor_group.value.adv_additional_path_vpnv6
+      password                           = neighbor_group.value.password
+      auth_options                       = neighbor_group.value.auth_options
+      graceful_shutdown_community        = neighbor_group.value.graceful_shutdown_community
+      graceful_shutdown_local_preference = neighbor_group.value.graceful_shutdown_local_preference
+      graceful_shutdown_delay            = neighbor_group.value.graceful_shutdown_delay
+      use_sdwan                          = neighbor_group.value.use_sdwan
     }
   }
   dynamic "neighbor_range" {
-    for_each = { for neighbor_range in try(each.value.neighbor_range, []) : index(each.value.neighbor_range, neighbor_range) => neighbor_range }
+    for_each = [for o in each.value.neighbor_range : o]
     content {
-      id               = try(neighbor_range.value.id, null)
-      prefix           = try(neighbor_range.value.prefix, null)
-      max_neighbor_num = try(neighbor_range.value.max_neighbor_num, null)
-      neighbor_group   = try(neighbor_range.value.neighbor_group, null)
+      id               = neighbor_range.value.id
+      prefix           = neighbor_range.value.prefix
+      max_neighbor_num = neighbor_range.value.max_neighbor_num
+      neighbor_group   = neighbor_range.value.neighbor_group
     }
   }
   dynamic "neighbor_range6" {
-    for_each = { for neighbor_range6 in try(each.value.neighbor_range6, []) : index(each.value.neighbor_range6, neighbor_range6) => neighbor_range6 }
+    for_each = [for o in each.value.neighbor_range6 : o]
     content {
-      id               = try(neighbor_range6.value.id, null)
-      prefix6          = try(neighbor_range6.value.prefix, null)
-      max_neighbor_num = try(neighbor_range6.value.max_neighbor_num, null)
-      neighbor_group   = try(neighbor_range6.value.neighbor_group, null)
+      id               = neighbor_range6.value.id
+      prefix6          = neighbor_range6.value.prefix
+      max_neighbor_num = neighbor_range6.value.max_neighbor_num
+      neighbor_group   = neighbor_range6.value.neighbor_group
     }
   }
 
   dynamic "network" {
-    for_each = { for network in try(each.value.network, []) : network.id => network }
+    for_each = [for o in each.value.network : o]
     content {
-      id                   = try(network.value.id, null)
-      prefix               = try(network.value.prefix, null)
-      network_import_check = try(network.value.network_import_check, null)
-      backdoor             = try(network.value.backdoor, null)
-      route_map            = try(network.value.route_map, null)
-      prefix_name          = try(network.value.prefix_name, null)
+      id                   = network.value.id
+      prefix               = network.value.prefix
+      network_import_check = network.value.network_import_check
+      backdoor             = network.value.backdoor
+      route_map            = network.value.route_map
+      prefix_name          = network.value.prefix_name
     }
   }
 
   dynamic "network6" {
-    for_each = { for network6 in try(each.value.network6, []) : network6.id => network6 }
+    for_each = [for o in each.value.network6 : o]
     content {
-      id                   = try(network6.value.id, null)
-      prefix6              = try(network6.value.prefix, null)
-      network_import_check = try(network6.value.network_import_check, null)
-      backdoor             = try(network6.value.backdoor, null)
-      route_map            = try(network6.value.route_map, null)
+      id                   = network6.value.id
+      prefix6              = network6.value.prefix
+      network_import_check = network6.value.network_import_check
+      backdoor             = network6.value.backdoor
+      route_map            = network6.value.route_map
     }
   }
 
   dynamic "redistribute" {
-    for_each = { for type in local.redistribute : index(local.redistribute, type) => type }
+    for_each = [for o in each.value.redistribute : o]
     content {
-      name      = redistribute.value
-      status    = try(each.value.redistribute[redistribute.value].status, "disable")
-      route_map = try(each.value.redistribute[redistribute.value].route_map, null)
+      name           = redistribute.value.name
+      status         = redistribute.value.status
+      status_evpn    = redistribute.value.status_evpn
+      route_map      = redistribute.value.route_map
+      route_map_evpn = redistribute.value.route_map_evpn
     }
   }
 
   dynamic "redistribute6" {
-    for_each = { for type in local.redistribute : index(local.redistribute, type) => type }
+    for_each = [for o in each.value.redistribute6 : o]
     content {
-      name      = redistribute6.value
-      status    = try(each.value.redistribute6[redistribute6.value].status, "disable")
-      route_map = try(each.value.redistribute6[redistribute6.value].route_map, null)
+      name      = redistribute6.value.name
+      status    = redistribute6.value.status
+      route_map = redistribute6.value.route_map
     }
   }
 
   dynamic "admin_distance" {
-    for_each = { for admin_distance in try(each.value.admin_distance, []) : admin_distance.id => admin_distance }
+    for_each = [for o in each.value.admin_distance : o]
     content {
-      id               = try(admin_distance.value.id, null)
-      neighbour_prefix = try(admin_distance.value.neighbour_prefix, null)
-      route_list       = try(admin_distance.value.route_list, null)
-      distance         = try(admin_distance.value.distance, null)
+      id               = admin_distance.value.id
+      neighbour_prefix = admin_distance.value.neighbour_prefix
+      route_list       = admin_distance.value.route_list
+      distance         = admin_distance.value.distance
     }
   }
 
   dynamic "vrf" {
-    for_each = { for vrf in try(each.value.vrf, []) : vrf.id => vrf }
+    for_each = [for o in each.value.vrf : o]
     content {
-      vrf              = try(vrf.value.vrf, null)
-      role             = try(vrf.value.role, null)
-      rd               = try(vrf.value.rd, null)
-      import_route_map = try(vrf.value.import_route_map, null)
+      vrf              = vrf.value.vrf
+      role             = vrf.value.role
+      rd               = vrf.value.rd
+      import_route_map = vrf.value.import_route_map
 
       dynamic "export_rt" {
-        for_each = { for export_rt in try(vrf.value.export_rt, []) : export_rt => export_rt }
+        for_each = [for p in vrf.value.export_rt : p]
         content {
           route_target = export_rt.value
         }
       }
       dynamic "import_rt" {
-        for_each = { for import_rt in try(vrf.value.import_rt, []) : import_rt => import_rt }
+        for_each = [for p in vrf.value.import_rt : p]
         content {
           route_target = import_rt.value
         }
       }
       dynamic "leak_target" {
-        for_each = { for leak_target in try(vrf.value.leak_target, []) : index(vrf.value.leak_target, leak_target) => leak_target }
+        for_each = [for p in vrf.value.leak_target : p]
         content {
-          vrf       = try(leak_target.value.vrf, null)
-          route_map = try(leak_target.value.route_map, null)
-          interface = try(leak_target.value.interface, null)
+          vrf       = leak_target.value.vrf
+          route_map = leak_target.value.route_map
+          interface = leak_target.value.interface
         }
       }
     }
   }
 
   dynamic "vrf6" {
-    for_each = { for vrf6 in try(each.value.vrf6, []) : index(each.value.vrf6, vrf6) => vrf6 }
+    for_each = [for o in each.value.vrf6 : o]
     content {
-      vrf              = try(vrf6.value.vrf, null)
-      role             = try(vrf6.value.role, null)
-      rd               = try(vrf6.value.rd, null)
-      import_route_map = try(vrf6.value.import_route_map, null)
+      vrf              = vrf6.value.vrf
+      role             = vrf6.value.role
+      rd               = vrf6.value.rd
+      import_route_map = vrf6.value.import_route_map
 
       dynamic "export_rt" {
-        for_each = { for export_rt in try(vrf6.value.export_rt, []) : export_rt => export_rt }
+        for_each = [for p in vrf6.value.export_rt : p]
         content {
           route_target = export_rt.value
         }
       }
       dynamic "import_rt" {
-        for_each = { for import_rt in try(vrf6.value.import_rt, []) : import_rt => import_rt }
+        for_each = [for p in vrf6.value.import_rt : p]
         content {
           route_target = import_rt.value
         }
       }
       dynamic "leak_target" {
-        for_each = { for leak_target in try(vrf6.value.leak_target, []) : index(vrf6.value.leak_target, leak_target) => leak_target }
+        for_each = [for p in vrf6.value.leak_target : p]
         content {
-          vrf       = try(leak_target.value.vrf, null)
-          route_map = try(leak_target.value.route_map, null)
-          interface = try(leak_target.value.interface, null)
+          vrf       = leak_target.value.vrf
+          route_map = leak_target.value.route_map
+          interface = leak_target.value.interface
         }
       }
     }
   }
 
   dynamic "vrf_leak" {
-    for_each = { for vrf_leak in try(each.value.vrf_leak, []) : index(each.value.vrf_leak, vrf_leak) => vrf_leak }
+    for_each = [for o in each.value.vrf_leak : o]
     content {
-      vrf = try(vrf_leak.value.vrf, null)
+      vrf = vrf_leak.value.vrf
       dynamic "target" {
-        for_each = { for target in try(vrf_leak.value.target, []) : index(vrf_leak.value.target, target) => target }
+        for_each = [for p in vrf_leak.value.target : p]
         content {
-          vrf       = try(target.value.vrf, null)
-          route_map = try(target.value.route_map, null)
-          interface = try(target.value.interface, null)
+          vrf       = target.value.vrf
+          route_map = target.value.route_map
+          interface = target.value.interface
         }
       }
     }
   }
+
   dynamic "vrf_leak6" {
-    for_each = { for vrf_leak6 in try(each.value.vrf_leak6, []) : index(each.value.vrf_leak6, vrf_leak6) => vrf_leak6 }
+    for_each = [for o in each.value.vrf_leak6 : o]
     content {
-      vrf = try(vrf_leak6.value.vrf, null)
+      vrf = vrf_leak6.value.vrf
       dynamic "target" {
-        for_each = { for target in try(vrf_leak6.value.target, []) : index(vrf_leak6.value.target, target) => target }
+        for_each = [for p in vrf_leak6.value.target : p]
         content {
-          vrf       = try(target.value.vrf, null)
-          route_map = try(target.value.route_map, null)
-          interface = try(target.value.interface, null)
+          vrf       = target.value.vrf
+          route_map = target.value.route_map
+          interface = target.value.interface
         }
       }
     }
   }
 }
 
-resource "fortios_router_prefixlist6" "prefixlist_v6" {
-  for_each = { for prefix_list in local.prefix_lists_v6 : prefix_list.name => prefix_list }
-  name     = each.key
+resource "fortios_routerbgp_neighbor" "peer" {
+  for_each   = { for peer in var.neighbor : peer.ip => peer }
+  depends_on = [fortios_router_routemap.routemap]
+
+  ip                                 = each.value.ip
+  name                               = each.value.name
+  advertisement_interval             = each.value.advertisement_interval
+  allowas_in_enable                  = each.value.allowas_in_enable
+  allowas_in_enable6                 = each.value.allowas_in_enable6
+  allowas_in_enable_vpnv4            = each.value.allowas_in_enable_vpnv4
+  allowas_in_enable_vpnv6            = each.value.allowas_in_enable_vpnv6
+  allowas_in_enable_evpn             = each.value.allowas_in_enable_evpn
+  allowas_in                         = each.value.allowas_in
+  allowas_in6                        = each.value.allowas_in6
+  allowas_in_vpnv4                   = each.value.allowas_in_vpnv4
+  allowas_in_vpnv6                   = each.value.allowas_in_vpnv6
+  allowas_in_evpn                    = each.value.allowas_in_evpn
+  attribute_unchanged                = each.value.attribute_unchanged
+  attribute_unchanged6               = each.value.attribute_unchanged6
+  attribute_unchanged_vpnv4          = each.value.attribute_unchanged_vpnv4
+  attribute_unchanged_vpnv6          = each.value.attribute_unchanged_vpnv6
+  activate                           = each.value.activate
+  activate6                          = each.value.activate6
+  activate_vpnv4                     = each.value.activate_vpnv4
+  activate_vpnv6                     = each.value.activate_vpnv6
+  activate_evpn                      = each.value.activate_evpn
+  bfd                                = each.value.bfd
+  capability_dynamic                 = each.value.capability_dynamic
+  capability_orf                     = each.value.capability_orf
+  capability_orf6                    = each.value.capability_orf6
+  capability_graceful_restart        = each.value.capability_graceful_restart
+  capability_graceful_restart6       = each.value.capability_graceful_restart6
+  capability_graceful_restart_vpnv4  = each.value.capability_graceful_restart_vpnv4
+  capability_graceful_restart_vpnv6  = each.value.capability_graceful_restart_vpnv6
+  capability_graceful_restart_evpn   = each.value.capability_graceful_restart_evpn
+  capability_route_refresh           = each.value.capability_route_refresh
+  capability_default_originate       = each.value.capability_default_originate
+  capability_default_originate6      = each.value.capability_default_originate6
+  dont_capability_negotiate          = each.value.dont_capability_negotiate
+  ebgp_enforce_multihop              = each.value.ebgp_enforce_multihop
+  link_down_failover                 = each.value.link_down_failover
+  stale_route                        = each.value.stale_route
+  next_hop_self                      = each.value.next_hop_self
+  next_hop_self6                     = each.value.next_hop_self6
+  next_hop_self_rr                   = each.value.next_hop_self_rr
+  next_hop_self_rr6                  = each.value.next_hop_self_rr6
+  next_hop_self_vpnv4                = each.value.next_hop_self_vpnv4
+  next_hop_self_vpnv6                = each.value.next_hop_self_vpnv6
+  next_hop_self_rr_vpnv4             = each.value.next_hop_self_rr_vpnv4
+  next_hop_self_rr_vpnv6             = each.value.next_hop_self_rr_vpnv6
+  override_capability                = each.value.override_capability
+  passive                            = each.value.passive
+  remove_private_as                  = each.value.remove_private_as
+  remove_private_as6                 = each.value.remove_private_as6
+  remove_private_as_vpnv4            = each.value.remove_private_as_vpnv4
+  remove_private_as_vpnv6            = each.value.remove_private_as_vpnv6
+  remove_private_as_evpn             = each.value.remove_private_as_evpn
+  route_reflector_client             = each.value.route_reflector_client
+  route_reflector_client6            = each.value.route_reflector_client6
+  route_reflector_client_vpnv4       = each.value.route_reflector_client_vpnv4
+  route_reflector_client_vpnv6       = each.value.route_reflector_client_vpnv6
+  route_reflector_client_evpn        = each.value.route_reflector_client_evpn
+  route_server_client                = each.value.route_server_client
+  route_server_client6               = each.value.route_server_client6
+  route_server_client_vpnv4          = each.value.route_server_client_vpnv4
+  route_server_client_vpnv6          = each.value.route_server_client_vpnv6
+  route_server_client_evpn           = each.value.route_server_client_evpn
+  rr_attr_allow_change               = each.value.rr_attr_allow_change
+  rr_attr_allow_change6              = each.value.rr_attr_allow_change6
+  rr_attr_allow_change_vpnv4         = each.value.rr_attr_allow_change_vpnv4
+  rr_attr_allow_change_vpnv6         = each.value.rr_attr_allow_change_vpnv6
+  rr_attr_allow_change_evpn          = each.value.rr_attr_allow_change_evpn
+  adv_evpn_route                     = each.value.adv_evpn_route
+  shutdown                           = each.value.shutdown
+  soft_reconfiguration               = each.value.soft_reconfiguration
+  soft_reconfiguration6              = each.value.soft_reconfiguration6
+  soft_reconfiguration_vpnv4         = each.value.soft_reconfiguration_vpnv4
+  soft_reconfiguration_vpnv6         = each.value.soft_reconfiguration_vpnv6
+  soft_reconfiguration_evpn          = each.value.soft_reconfiguration_evpn
+  as_override                        = each.value.as_override
+  as_override6                       = each.value.as_override6
+  strict_capability_match            = each.value.strict_capability_match
+  default_originate_routemap         = each.value.default_originate_routemap
+  default_originate_routemap6        = each.value.default_originate_routemap6
+  description                        = each.value.description
+  distribute_list_in                 = each.value.distribute_list_in
+  distribute_list_in6                = each.value.distribute_list_in6
+  distribute_list_in_vpnv4           = each.value.distribute_list_in_vpnv4
+  distribute_list_in_vpnv6           = each.value.distribute_list_in_vpnv6
+  distribute_list_out                = each.value.distribute_list_out
+  distribute_list_out6               = each.value.distribute_list_out6
+  distribute_list_out_vpnv4          = each.value.distribute_list_out_vpnv4
+  distribute_list_out_vpnv6          = each.value.distribute_list_out_vpnv6
+  ebgp_multihop_ttl                  = each.value.ebgp_multihop_ttl
+  filter_list_in                     = each.value.filter_list_in
+  filter_list_in6                    = each.value.filter_list_in6
+  filter_list_in_vpnv4               = each.value.filter_list_in_vpnv4
+  filter_list_in_vpnv6               = each.value.filter_list_in_vpnv6
+  filter_list_out                    = each.value.filter_list_out
+  filter_list_out6                   = each.value.filter_list_out6
+  filter_list_out_vpnv4              = each.value.filter_list_out_vpnv4
+  filter_list_out_vpnv6              = each.value.filter_list_out_vpnv6
+  interface                          = each.value.interface
+  maximum_prefix                     = each.value.maximum_prefix
+  maximum_prefix6                    = each.value.maximum_prefix6
+  maximum_prefix_vpnv4               = each.value.maximum_prefix_vpnv4
+  maximum_prefix_vpnv6               = each.value.maximum_prefix_vpnv6
+  maximum_prefix_evpn                = each.value.maximum_prefix_evpn
+  maximum_prefix_threshold           = each.value.maximum_prefix_threshold
+  maximum_prefix_threshold6          = each.value.maximum_prefix_threshold6
+  maximum_prefix_threshold_vpnv4     = each.value.maximum_prefix_threshold_vpnv4
+  maximum_prefix_threshold_vpnv6     = each.value.maximum_prefix_threshold_vpnv6
+  maximum_prefix_threshold_evpn      = each.value.maximum_prefix_threshold_evpn
+  maximum_prefix_warning_only        = each.value.maximum_prefix_warning_only
+  maximum_prefix_warning_only6       = each.value.maximum_prefix_warning_only6
+  maximum_prefix_warning_only_vpnv4  = each.value.maximum_prefix_warning_only_vpnv4
+  maximum_prefix_warning_only_vpnv6  = each.value.maximum_prefix_warning_only_vpnv6
+  maximum_prefix_warning_only_evpn   = each.value.maximum_prefix_warning_only_evpn
+  prefix_list_in                     = each.value.prefix_list_in
+  prefix_list_in6                    = each.value.prefix_list_in6
+  prefix_list_in_vpnv4               = each.value.prefix_list_in_vpnv4
+  prefix_list_in_vpnv6               = each.value.prefix_list_in_vpnv6
+  prefix_list_out                    = each.value.prefix_list_out
+  prefix_list_out6                   = each.value.prefix_list_out6
+  prefix_list_out_vpnv4              = each.value.prefix_list_out_vpnv4
+  prefix_list_out_vpnv6              = each.value.prefix_list_out_vpnv6
+  remote_as                          = each.value.remote_as
+  local_as                           = each.value.local_as
+  local_as_no_prepend                = each.value.local_as_no_prepend
+  local_as_replace_as                = each.value.local_as_replace_as
+  retain_stale_time                  = each.value.retain_stale_time
+  route_map_in                       = each.value.route_map_in
+  route_map_in6                      = each.value.route_map_in6
+  route_map_in_vpnv4                 = each.value.route_map_in_vpnv4
+  route_map_in_vpnv6                 = each.value.route_map_in_vpnv6
+  route_map_in_evpn                  = each.value.route_map_in_evpn
+  route_map_out                      = each.value.route_map_out
+  route_map_out_preferable           = each.value.route_map_out_preferable
+  route_map_out6                     = each.value.route_map_out6
+  route_map_out6_preferable          = each.value.route_map_out6_preferable
+  route_map_out_vpnv4                = each.value.route_map_out_vpnv4
+  route_map_out_vpnv6                = each.value.route_map_out_vpnv6
+  route_map_out_vpnv4_preferable     = each.value.route_map_out_vpnv4_preferable
+  route_map_out_vpnv6_preferable     = each.value.route_map_out_vpnv6_preferable
+  route_map_out_evpn                 = each.value.route_map_out_evpn
+  send_community                     = each.value.send_community
+  send_community6                    = each.value.send_community6
+  send_community_vpnv4               = each.value.send_community_vpnv4
+  send_community_vpnv6               = each.value.send_community_vpnv6
+  send_community_evpn                = each.value.send_community_evpn
+  keep_alive_timer                   = each.value.keep_alive_timer
+  holdtime_timer                     = each.value.holdtime_timer
+  connect_timer                      = each.value.connect_timer
+  unsuppress_map                     = each.value.unsuppress_map
+  unsuppress_map6                    = each.value.unsuppress_map6
+  update_source                      = each.value.update_source
+  enforce_preferred_source           = each.value.enforce_preferred_source
+  weight                             = each.value.weight
+  restart_time                       = each.value.restart_time
+  additional_path                    = each.value.additional_path
+  additional_path6                   = each.value.additional_path6
+  additional_path_vpnv4              = each.value.additional_path_vpnv4
+  additional_path_vpnv6              = each.value.additional_path_vpnv6
+  adv_additional_path                = each.value.adv_additional_path
+  adv_additional_path6               = each.value.adv_additional_path6
+  adv_additional_path_vpnv4          = each.value.adv_additional_path_vpnv4
+  adv_additional_path_vpnv6          = each.value.adv_additional_path_vpnv6
+  password                           = each.value.password
+  auth_options                       = each.value.auth_options
+  graceful_shutdown_community        = each.value.graceful_shutdown_community
+  graceful_shutdown_local_preference = each.value.graceful_shutdown_local_preference
+  graceful_shutdown_delay            = each.value.graceful_shutdown_delay
+  use_sdwan                          = each.value.use_sdwan
+  dynamic_sort_subtable              = each.value.dynamic_sort_subtable
+  get_all_tables                     = each.value.get_all_tables
+  vdomparam                          = each.value.vdomparam
+  update_if_exist                    = each.value.update_if_exist
+
+  dynamic "conditional_advertise" {
+    for_each = [for o in each.value.conditional_advertise : o]
+    content {
+      advertise_routemap = conditional_advertise.value.advertise_routemap
+      condition_routemap = conditional_advertise.value.condition_routemap
+      condition_type     = conditional_advertise.value.condition_type
+    }
+  }
+
+  dynamic "conditional_advertise6" {
+    for_each = [for o in each.value.conditional_advertise6 : o]
+    content {
+      advertise_routemap = conditional_advertise6.value.advertise_routemap
+      condition_routemap = conditional_advertise6.value.condition_routemap
+      condition_type     = conditional_advertise6.value.condition_type
+    }
+  }
+}
+
+resource "fortios_router_prefixlist6" "prefixlist6" {
+  for_each              = { for prefix_list in var.prefixlist6 : prefix_list.name => prefix_list }
+  name                  = each.value.name
+  comments              = each.value.comments
+  dynamic_sort_subtable = each.value.dynamic_sort_subtable
+  get_all_tables        = each.value.get_all_tables
+  vdomparam             = each.value.vdomparam
+  update_if_exist       = each.value.update_if_exist
+
   dynamic "rule" {
-    for_each = { for rule in each.value.rules : rule.id => rule }
+    for_each = [for o in each.value.rule : o]
     content {
       id      = rule.value.id
       action  = rule.value.action
-      prefix6 = try(rule.value.prefix, null)
-      ge      = try(rule.value.ge, null)
-      le      = try(rule.value.le, null)
-      flags   = try(rule.value.flags, null)
+      prefix6 = rule.value.prefix6
+      ge      = rule.value.ge
+      le      = rule.value.le
+      flags   = rule.value.flags
     }
   }
-  vdomparam = each.value.vdom
 }
 
-resource "fortios_router_prefixlist" "prefixlist_v4" {
-  for_each = { for prefix_list in local.prefix_lists_v4 : prefix_list.name => prefix_list }
-  name     = each.key
+resource "fortios_router_prefixlist" "prefixlist" {
+  for_each              = { for prefix_list in var.prefixlist : prefix_list.name => prefix_list }
+  name                  = each.value.name
+  comments              = each.value.comments
+  dynamic_sort_subtable = each.value.dynamic_sort_subtable
+  get_all_tables        = each.value.get_all_tables
+  vdomparam             = each.value.vdomparam
+  update_if_exist       = each.value.update_if_exist
+
   dynamic "rule" {
-    for_each = { for rule in each.value.rules : rule.id => rule }
+    for_each = [for o in each.value.rule : o]
     content {
       id     = rule.value.id
       action = rule.value.action
-      prefix = try(rule.value.prefix, null)
-      ge     = try(rule.value.ge, null)
-      le     = try(rule.value.le, null)
-      flags  = try(rule.value.flags, null)
+      prefix = rule.value.prefix
+      ge     = rule.value.ge
+      le     = rule.value.le
+      flags  = rule.value.flags
     }
   }
-  vdomparam = each.value.vdom
 }
 
-resource "fortios_router_routemap" "routemaps" {
+resource "fortios_router_routemap" "routemap" {
   depends_on = [
-    fortios_router_prefixlist.prefixlist_v4,
-    fortios_router_prefixlist6.prefixlist_v6,
+    fortios_router_prefixlist.prefixlist,
+    fortios_router_prefixlist6.prefixlist6,
   ]
-  for_each = { for route_map in local.route_maps : route_map.name => route_map }
-  name     = each.key
+  for_each              = { for route_map in var.routemap : route_map.name => route_map }
+  name                  = each.value.name
+  comments              = each.value.comments
+  dynamic_sort_subtable = each.value.dynamic_sort_subtable
+  get_all_tables        = each.value.get_all_tables
+  vdomparam             = each.value.vdomparam
+  update_if_exist       = each.value.update_if_exist
+
   dynamic "rule" {
-    for_each = { for rule in each.value.rules : rule.id => rule }
+    for_each = [for o in each.value.rule : o]
     content {
-      id                       = rule.value.id
-      action                   = try(rule.value.action, null)
-      match_community          = try(rule.value.match_community, null)
-      match_extcommunity       = try(rule.value.match_extcommunity, null)
-      match_community_exact    = try(rule.value.match_community_exact, null)
-      match_extcommunity_exact = try(rule.value.match_extcommunity_exact, null)
-      match_origin             = try(rule.value.match_origin, null)
-      match_interface          = try(rule.value.match_interface, null)
-      match_ip_address         = try(rule.value.match_ip_address, null)
-      match_ip6_address        = try(rule.value.match_ip6_address, null)
-      match_ip_nexthop         = try(rule.value.match_ip_nexthop, null)
-      match_ip6_nexthop        = try(rule.value.match_ip6_nexthop, null)
-      match_metric             = try(rule.value.match_metric, null)
-      match_route_type         = try(rule.value.match_route_type, null)
-      match_tag                = try(rule.value.match_tag, null)
-      match_vrf                = try(rule.value.match_vrf, null)
-      set_aggregator_as        = try(rule.value.set_aggregator_as, null)
-      set_aggregator_ip        = try(rule.value.set_aggregator_ip, null)
-      set_aspath_action        = try(rule.value.set_aspath_action, null)
+      id                                     = rule.value.id
+      action                                 = rule.value.action
+      match_as_path                          = rule.value.match_as_path
+      match_community                        = rule.value.match_community
+      match_extcommunity                     = rule.value.match_extcommunity
+      match_community_exact                  = rule.value.match_community_exact
+      match_extcommunity_exact               = rule.value.match_extcommunity_exact
+      match_origin                           = rule.value.match_origin
+      match_interface                        = rule.value.match_interface
+      match_ip_address                       = rule.value.match_ip_address
+      match_ip6_address                      = rule.value.match_ip6_address
+      match_ip_nexthop                       = rule.value.match_ip_nexthop
+      match_ip6_nexthop                      = rule.value.match_ip6_nexthop
+      match_metric                           = rule.value.match_metric
+      match_route_type                       = rule.value.match_route_type
+      match_tag                              = rule.value.match_tag
+      match_vrf                              = rule.value.match_vrf
+      match_suppress                         = rule.value.match_suppress
+      set_aggregator_as                      = rule.value.set_aggregator_as
+      set_aggregator_ip                      = rule.value.set_aggregator_ip
+      set_aspath_action                      = rule.value.set_aspath_action
+      set_atomic_aggregate                   = rule.value.set_atomic_aggregate
+      set_community_delete                   = rule.value.set_community_delete
+      set_community_additive                 = rule.value.set_community_additive
+      set_dampening_reachability_half_life   = rule.value.set_dampening_reachability_half_life
+      set_dampening_reuse                    = rule.value.set_dampening_reuse
+      set_dampening_suppress                 = rule.value.set_dampening_suppress
+      set_dampening_max_suppress             = rule.value.set_dampening_max_suppress
+      set_dampening_unreachability_half_life = rule.value.set_dampening_unreachability_half_life
+      set_ip_nexthop                         = rule.value.set_ip_nexthop
+      set_ip_prefsrc                         = rule.value.set_ip_prefsrc
+      set_vpnv4_nexthop                      = rule.value.set_vpnv4_nexthop
+      set_ip6_nexthop                        = rule.value.set_ip6_nexthop
+      set_ip6_nexthop_local                  = rule.value.set_ip6_nexthop_local
+      set_vpnv6_nexthop                      = rule.value.set_vpnv6_nexthop
+      set_vpnv6_nexthop_local                = rule.value.set_vpnv6_nexthop_local
+      set_local_preference                   = rule.value.set_local_preference
+      set_metric                             = rule.value.set_metric
+      set_metric_type                        = rule.value.set_metric_type
+      set_originator_id                      = rule.value.set_originator_id
+      set_origin                             = rule.value.set_origin
+      set_tag                                = rule.value.set_tag
+      set_weight                             = rule.value.set_weight
+      set_flags                              = rule.value.set_flags
+      match_flags                            = rule.value.match_flags
+      set_route_tag                          = rule.value.set_route_tag
+      set_priority                           = rule.value.set_priority
 
       dynamic "set_aspath" {
-        for_each = { for as in length(try(rule.value.set_aspath, [])) == 0 ? [] : [rule.value.set_aspath] : as => as }
+        for_each = [for p in rule.value.set_aspath : p]
         content {
           as = set_aspath.value
         }
       }
 
-      set_atomic_aggregate = try(rule.value.set_atomic_aggregate, null)
-      set_community_delete = try(rule.value.set_community_delete, null)
-
       dynamic "set_community" {
-        for_each = { for community in length(try(rule.value.set_community, [])) == 0 ? [] : [rule.value.set_community] : community => community }
+        for_each = [for p in rule.value.set_community : p]
         content {
           community = set_community.value
         }
       }
 
-      set_community_additive                 = try(rule.value.set_community_additive, null)
-      set_dampening_reachability_half_life   = try(rule.value.set_dampening_reachability_half_life, null)
-      set_dampening_reuse                    = try(rule.value.set_dampening_reuse, null)
-      set_dampening_suppress                 = try(rule.value.set_dampening_suppress, null)
-      set_dampening_max_suppress             = try(rule.value.set_dampening_max_suppress, null)
-      set_dampening_unreachability_half_life = try(rule.value.set_dampening_unreachability_half_life, null)
-      set_ip_nexthop                         = try(rule.value.set_ip_nexthop, null)
-
       dynamic "set_extcommunity_rt" {
-        for_each = { for community in length(try(rule.value.set_extcommunity_rt, [])) == 0 ? [] : [rule.value.set_extcommunity_rt] : community => community }
+        for_each = [for p in rule.value.set_extcommunity_rt : p]
         content {
           community = set_extcommunity_rt.value
         }
       }
 
       dynamic "set_extcommunity_soo" {
-        for_each = { for community in length(try(rule.value.set_extcommunity_soo, [])) == 0 ? [] : [rule.value.set_extcommunity_soo] : community => community }
+        for_each = [for p in rule.value.set_extcommunity_soo : p]
         content {
           community = set_extcommunity_soo.value
         }
       }
-
-      set_ip_prefsrc          = try(rule.value.set_ip_prefsrc, null)
-      set_vpnv4_nexthop       = try(rule.value.set_vpnv4_nexthop, null)
-      set_ip6_nexthop         = try(rule.value.set_ip6_nexthop, null)
-      set_ip6_nexthop_local   = try(rule.value.set_ip6_nexthop_local, null)
-      set_vpnv6_nexthop       = try(rule.value.set_vpnv6_nexthop, null)
-      set_vpnv6_nexthop_local = try(rule.value.set_vpnv6_nexthop_local, null)
-      set_local_preference    = try(rule.value.set_local_preference, null)
-      set_metric              = try(rule.value.set_metric, null)
-      set_metric_type         = try(rule.value.set_metric_type, null)
-      set_originator_id       = try(rule.value.set_originator_id, null)
-      set_origin              = try(rule.value.set_origin, null)
-      set_tag                 = try(rule.value.set_tag, null)
-      set_weight              = try(rule.value.set_weight, null)
-      set_flags               = try(rule.value.set_flags, null)
-      match_flags             = try(rule.value.match_flags, null)
-      set_route_tag           = try(rule.value.set_route_tag, null)
-      set_priority            = try(rule.value.set_priority, null)
     }
   }
-  vdomparam = each.value.vdom
-}
-
-resource "fortios_routerbgp_neighbor" "peer" {
-  for_each                          = { for peer in local.bgp_peers : peer.ip => peer }
-  depends_on                        = [fortios_router_routemap.routemaps]
-  ip                                = try(each.value.ip, null)
-  advertisement_interval            = try(each.value.advertisement_interval, null)
-  allowas_in_enable                 = try(each.value.allowas_in_enable, null)
-  allowas_in_enable6                = try(each.value.allowas_in_enable6, null)
-  allowas_in_enable_vpnv4           = try(each.value.allowas_in_enable_vpnv4, null)
-  allowas_in_enable_vpnv6           = try(each.value.allowas_in_enable_vpnv6, null)
-  allowas_in_enable_evpn            = try(each.value.allowas_in_enable_evpn, null)
-  allowas_in                        = try(each.value.allowas_in, null)
-  allowas_in6                       = try(each.value.allowas_in6, null)
-  allowas_in_vpnv4                  = try(each.value.allowas_in_vpnv4, null)
-  allowas_in_vpnv6                  = try(each.value.allowas_in_vpnv6, null)
-  allowas_in_evpn                   = try(each.value.allowas_in_evpn, null)
-  attribute_unchanged               = try(each.value.attribute_unchanged, null)
-  attribute_unchanged6              = try(each.value.attribute_unchanged6, null)
-  attribute_unchanged_vpnv4         = try(each.value.attribute_unchanged_vpnv4, null)
-  attribute_unchanged_vpnv6         = try(each.value.attribute_unchanged_vpnv6, null)
-  activate                          = try(each.value.activate, null)
-  activate6                         = try(each.value.activate6, null)
-  activate_vpnv4                    = try(each.value.activate_vpnv4, null)
-  activate_vpnv6                    = try(each.value.activate_vpnv6, null)
-  activate_evpn                     = try(each.value.activate_evpn, null)
-  bfd                               = try(each.value.bfd, null)
-  capability_dynamic                = try(each.value.capability_dynamic, null)
-  capability_orf                    = try(each.value.capability_orf, null)
-  capability_orf6                   = try(each.value.capability_orf6, null)
-  capability_graceful_restart       = try(each.value.capability_graceful_restart, null)
-  capability_graceful_restart6      = try(each.value.capability_graceful_restart6, null)
-  capability_graceful_restart_vpnv4 = try(each.value.capability_graceful_restart_vpnv4, null)
-  capability_graceful_restart_vpnv6 = try(each.value.capability_graceful_restart_vpnv6, null)
-  capability_graceful_restart_evpn  = try(each.value.capability_graceful_restart_evpn, null)
-  capability_route_refresh          = try(each.value.capability_route_refresh, null)
-  capability_default_originate      = try(each.value.capability_default_originate, null)
-  capability_default_originate6     = try(each.value.capability_default_originate6, null)
-  dont_capability_negotiate         = try(each.value.dont_capability_negotiate, null)
-  ebgp_enforce_multihop             = try(each.value.ebgp_enforce_multihop, null)
-  link_down_failover                = try(each.value.link_down_failover, null)
-  stale_route                       = try(each.value.stale_route, null)
-  next_hop_self                     = try(each.value.next_hop_self, null)
-  next_hop_self6                    = try(each.value.next_hop_self6, null)
-  next_hop_self_rr                  = try(each.value.next_hop_self_rr, null)
-  next_hop_self_rr6                 = try(each.value.next_hop_self_rr6, null)
-  next_hop_self_vpnv4               = try(each.value.next_hop_self_vpnv4, null)
-  next_hop_self_vpnv6               = try(each.value.next_hop_self_vpnv6, null)
-  override_capability               = try(each.value.override_capability, null)
-  passive                           = try(each.value.passive, null)
-  remove_private_as                 = try(each.value.remove_private_as, null)
-  remove_private_as6                = try(each.value.remove_private_as6, null)
-  remove_private_as_vpnv4           = try(each.value.remove_private_as_vpnv4, null)
-  remove_private_as_vpnv6           = try(each.value.remove_private_as_vpnv6, null)
-  remove_private_as_evpn            = try(each.value.remove_private_as_evpn, null)
-  route_reflector_client            = try(each.value.route_reflector_client, null)
-  route_reflector_client6           = try(each.value.route_reflector_client6, null)
-  route_reflector_client_vpnv4      = try(each.value.route_reflector_client_vpnv4, null)
-  route_reflector_client_vpnv6      = try(each.value.route_reflector_client_vpnv6, null)
-  route_reflector_client_evpn       = try(each.value.route_reflector_client_evpn, null)
-  route_server_client               = try(each.value.route_server_client, null)
-  route_server_client6              = try(each.value.route_server_client6, null)
-  route_server_client_vpnv4         = try(each.value.route_server_client_vpnv4, null)
-  route_server_client_vpnv6         = try(each.value.route_server_client_vpnv6, null)
-  route_server_client_evpn          = try(each.value.route_server_client_evpn, null)
-  rr_attr_allow_change              = try(each.value.rr_attr_allow_change, null)
-  rr_attr_allow_change6             = try(each.value.rr_attr_allow_change6, null)
-  rr_attr_allow_change_vpnv4        = try(each.value.rr_attr_allow_change_vpnv4, null)
-  rr_attr_allow_change_vpnv6        = try(each.value.rr_attr_allow_change_vpnv6, null)
-  rr_attr_allow_change_evpn         = try(each.value.rr_attr_allow_change_evpn, null)
-  shutdown                          = try(each.value.shutdown, null)
-  soft_reconfiguration              = try(each.value.soft_reconfiguration, null)
-  soft_reconfiguration6             = try(each.value.soft_reconfiguration6, null)
-  soft_reconfiguration_vpnv4        = try(each.value.soft_reconfiguration_vpnv4, null)
-  soft_reconfiguration_vpnv6        = try(each.value.soft_reconfiguration_vpnv6, null)
-  soft_reconfiguration_evpn         = try(each.value.soft_reconfiguration_evpn, null)
-  as_override                       = try(each.value.as_override, null)
-  as_override6                      = try(each.value.as_override6, null)
-  strict_capability_match           = try(each.value.strict_capability_match, null)
-  default_originate_routemap        = try(each.value.default_originate_routemap, null)
-  default_originate_routemap6       = try(each.value.default_originate_routemap6, null)
-  description                       = try(each.value.description, null)
-  distribute_list_in                = try(each.value.distribute_list_in, null)
-  distribute_list_in6               = try(each.value.distribute_list_in6, null)
-  distribute_list_in_vpnv4          = try(each.value.distribute_list_in_vpnv4, null)
-  distribute_list_in_vpnv6          = try(each.value.distribute_list_in_vpnv6, null)
-  distribute_list_out               = try(each.value.distribute_list_out, null)
-  distribute_list_out6              = try(each.value.distribute_list_out6, null)
-  distribute_list_out_vpnv4         = try(each.value.distribute_list_out_vpnv4, null)
-  distribute_list_out_vpnv6         = try(each.value.distribute_list_out_vpnv6, null)
-  ebgp_multihop_ttl                 = try(each.value.ebgp_multihop_ttl, null)
-  filter_list_in                    = try(each.value.filter_list_in, null)
-  filter_list_in6                   = try(each.value.filter_list_in6, null)
-  filter_list_in_vpnv4              = try(each.value.filter_list_in_vpnv4, null)
-  filter_list_in_vpnv6              = try(each.value.filter_list_in_vpnv6, null)
-  filter_list_out                   = try(each.value.filter_list_out, null)
-  filter_list_out6                  = try(each.value.filter_list_out6, null)
-  filter_list_out_vpnv4             = try(each.value.filter_list_out_vpnv4, null)
-  filter_list_out_vpnv6             = try(each.value.filter_list_out_vpnv6, null)
-  interface                         = try(each.value.interface, null)
-  maximum_prefix                    = try(each.value.maximum_prefix, null)
-  maximum_prefix6                   = try(each.value.maximum_prefix6, null)
-  maximum_prefix_vpnv4              = try(each.value.maximum_prefix_vpnv4, null)
-  maximum_prefix_vpnv6              = try(each.value.maximum_prefix_vpnv6, null)
-  maximum_prefix_evpn               = try(each.value.maximum_prefix_evpn, null)
-  maximum_prefix_threshold          = try(each.value.maximum_prefix_threshold, null)
-  maximum_prefix_threshold6         = try(each.value.maximum_prefix_threshold6, null)
-  maximum_prefix_threshold_vpnv4    = try(each.value.maximum_prefix_threshold_vpnv4, null)
-  maximum_prefix_threshold_vpnv6    = try(each.value.maximum_prefix_threshold_vpnv6, null)
-  maximum_prefix_threshold_evpn     = try(each.value.maximum_prefix_threshold_evpn, null)
-  maximum_prefix_warning_only       = try(each.value.maximum_prefix_warning_only, null)
-  maximum_prefix_warning_only6      = try(each.value.maximum_prefix_warning_only6, null)
-  maximum_prefix_warning_only_vpnv4 = try(each.value.maximum_prefix_warning_only_vpnv4, null)
-  maximum_prefix_warning_only_vpnv6 = try(each.value.maximum_prefix_warning_only_vpnv6, null)
-  maximum_prefix_warning_only_evpn  = try(each.value.maximum_prefix_warning_only_evpn, null)
-  prefix_list_in                    = try(each.value.prefix_list_in, null)
-  prefix_list_in6                   = try(each.value.prefix_list_in6, null)
-  prefix_list_in_vpnv4              = try(each.value.prefix_list_in_vpnv4, null)
-  prefix_list_in_vpnv6              = try(each.value.prefix_list_in_vpnv6, null)
-  prefix_list_out                   = try(each.value.prefix_list_out, null)
-  prefix_list_out6                  = try(each.value.prefix_list_out6, null)
-  prefix_list_out_vpnv4             = try(each.value.prefix_list_out_vpnv4, null)
-  prefix_list_out_vpnv6             = try(each.value.prefix_list_out_vpnv6, null)
-  remote_as                         = try(each.value.remote_as, null)
-  local_as                          = try(each.value.local_as, null)
-  local_as_no_prepend               = try(each.value.local_as_no_prepend, null)
-  local_as_replace_as               = try(each.value.local_as_replace_as, null)
-  retain_stale_time                 = try(each.value.retain_stale_time, null)
-  route_map_in                      = try(each.value.route_map_in, null)
-  route_map_in6                     = try(each.value.route_map_in6, null)
-  route_map_in_vpnv4                = try(each.value.route_map_in_vpnv4, null)
-  route_map_in_vpnv6                = try(each.value.route_map_in_vpnv6, null)
-  route_map_in_evpn                 = try(each.value.route_map_in_evpn, null)
-  route_map_out                     = try(each.value.route_map_out, null)
-  route_map_out_preferable          = try(each.value.route_map_out_preferable, null)
-  route_map_out6                    = try(each.value.route_map_out6, null)
-  route_map_out6_preferable         = try(each.value.route_map_out6_preferable, null)
-  route_map_out_vpnv4               = try(each.value.route_map_out_vpnv4, null)
-  route_map_out_vpnv6               = try(each.value.route_map_out_vpnv6, null)
-  route_map_out_vpnv4_preferable    = try(each.value.route_map_out_vpnv4_preferable, null)
-  route_map_out_vpnv6_preferable    = try(each.value.route_map_out_vpnv6_preferable, null)
-  route_map_out_evpn                = try(each.value.route_map_out_evpn, null)
-  send_community                    = try(each.value.send_community, null)
-  send_community6                   = try(each.value.send_community6, null)
-  send_community_vpnv4              = try(each.value.send_community_vpnv4, null)
-  send_community_vpnv6              = try(each.value.send_community_vpnv6, null)
-  send_community_evpn               = try(each.value.send_community_evpn, null)
-  keep_alive_timer                  = try(each.value.keep_alive_timer, null)
-  holdtime_timer                    = try(each.value.holdtime_timer, null)
-  connect_timer                     = try(each.value.connect_timer, null)
-  unsuppress_map                    = try(each.value.unsuppress_map, null)
-  unsuppress_map6                   = try(each.value.unsuppress_map6, null)
-  update_source                     = try(each.value.update_source, null)
-  weight                            = try(each.value.weight, null)
-  restart_time                      = try(each.value.restart_time, null)
-  additional_path                   = try(each.value.additional_path, null)
-  additional_path6                  = try(each.value.additional_path6, null)
-  additional_path_vpnv4             = try(each.value.additional_path_vpnv4, null)
-  additional_path_vpnv6             = try(each.value.additional_path_vpnv6, null)
-  adv_additional_path               = try(each.value.adv_additional_path, null)
-  adv_additional_path6              = try(each.value.adv_additional_path6, null)
-  adv_additional_path_vpnv4         = try(each.value.adv_additional_path_vpnv4, null)
-  adv_additional_path_vpnv6         = try(each.value.adv_additional_path_vpnv6, null)
-  password                          = try(each.value.password, null)
-  auth_options                      = try(each.value.auth_options, null)
-  dynamic_sort_subtable             = try(each.value.dynamic_sort_subtable, null)
-  get_all_tables                    = try(each.value.get_all_tables, null)
-  vdomparam                         = try(each.value.vdomparam, null)
 }
